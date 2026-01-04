@@ -434,29 +434,50 @@ class JarvisOrchestrator:
         context: SceneContext
     ) -> Dict[str, Any]:
         """Generate a 3D object"""
-        try:
-            object_type = action.get("object_type", "cube")
-            attributes = action.get("attributes", {})
+        import traceback
 
+        object_type = action.get("object_type", "cube")
+        attributes = action.get("attributes", {})
+
+        print(f"[GENERATOR] Generating object: {object_type}, attributes: {attributes}")
+
+        try:
             # Use text-to-3D generator
             if self.text_to_3d:
-                object_data = await self.text_to_3d.generate(
-                    prompt=f"a {object_type}",
-                    attributes=attributes
-                )
+                try:
+                    print(f"[GENERATOR] Calling text_to_3d.generate...")
+                    object_data = await self.text_to_3d.generate(
+                        prompt=f"a {object_type}",
+                        attributes=attributes
+                    )
+                    print(f"[GENERATOR] Generated object data received")
 
-                # Add to context
-                context.objects.append(object_data)
+                    # Add to context
+                    context.objects.append(object_data)
+                    print(f"[GENERATOR] Added object to context. Total objects: {len(context.objects)}")
 
-                return {
-                    "status": "success",
-                    "object": object_data
-                }
+                    return {
+                        "status": "success",
+                        "object": object_data
+                    }
+                except Exception as gen_error:
+                    print(f"⚠️ [GENERATOR] Error in text_to_3d.generate: {gen_error}")
+                    traceback.print_exc()
+                    raise
 
-            return {"status": "error", "message": "3D generator not available"}
+            print(f"⚠️ [GENERATOR] text_to_3d generator not available")
+            return {
+                "status": "error",
+                "message": "3D generator not available"
+            }
         except Exception as e:
-            print(f"Error generating object: {e}")
-            return {"status": "error", "message": str(e)}
+            print(f"❌ [GENERATOR] Error generating object: {e}")
+            traceback.print_exc()
+            return {
+                "status": "error",
+                "message": str(e),
+                "object_type": object_type
+            }
     
     async def _generate_environment(
         self,
