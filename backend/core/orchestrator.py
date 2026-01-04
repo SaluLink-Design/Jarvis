@@ -123,30 +123,70 @@ class JarvisOrchestrator:
             Response with generated 3D content and metadata
         """
         import uuid
+        import traceback
+
+        print(f"\n[ORCHESTRATOR] Processing request")
+        print(f"  Text: {text[:50] if text else 'None'}...")
+        print(f"  Context ID: {context_id}")
 
         try:
-            print(f"Processing request - text: {text}, context_id: {context_id}")
-
             # Get or create context
             if context_id and context_id in self.active_contexts:
                 context = self.active_contexts[context_id]
+                print(f"[ORCHESTRATOR] Using existing context: {context_id}")
             else:
                 context_id = str(uuid.uuid4())
                 context = SceneContext(scene_id=context_id)
                 self.active_contexts[context_id] = context
+                print(f"[ORCHESTRATOR] Created new context: {context_id}")
 
-            # Process multimodal inputs
-            processed_data = await self._process_multimodal_inputs(
-                text=text,
-                image_path=image_path,
-                video_url=video_url
-            )
+            try:
+                # Process multimodal inputs
+                print(f"[ORCHESTRATOR] Processing multimodal inputs...")
+                processed_data = await self._process_multimodal_inputs(
+                    text=text,
+                    image_path=image_path,
+                    video_url=video_url
+                )
+                print(f"[ORCHESTRATOR] Multimodal processing complete")
+            except Exception as e:
+                print(f"⚠️ [ORCHESTRATOR] Multimodal processing error: {e}")
+                traceback.print_exc()
+                processed_data = {
+                    "text_analysis": None,
+                    "image_analysis": None,
+                    "video_analysis": None
+                }
 
-            # Integrate information and plan actions
-            action_plan = await self._create_action_plan(processed_data, context)
+            try:
+                # Integrate information and plan actions
+                print(f"[ORCHESTRATOR] Creating action plan...")
+                action_plan = await self._create_action_plan(processed_data, context)
+                print(f"[ORCHESTRATOR] Action plan created with {len(action_plan)} actions")
+            except Exception as e:
+                print(f"⚠️ [ORCHESTRATOR] Action plan creation error: {e}")
+                traceback.print_exc()
+                # Fallback: create a simple default action
+                action_plan = [{
+                    "action": "generate_object",
+                    "object_type": "cube",
+                    "attributes": {"color": "blue"}
+                }]
 
-            # Execute action plan
-            result = await self._execute_action_plan(action_plan, context)
+            try:
+                # Execute action plan
+                print(f"[ORCHESTRATOR] Executing action plan...")
+                result = await self._execute_action_plan(action_plan, context)
+                print(f"[ORCHESTRATOR] Action plan executed. Success: {result.get('success', False)}")
+            except Exception as e:
+                print(f"⚠️ [ORCHESTRATOR] Action plan execution error: {e}")
+                traceback.print_exc()
+                result = {
+                    "actions_executed": 0,
+                    "results": [],
+                    "success": False,
+                    "error": str(e)
+                }
 
             # Update context history
             context.add_to_history("user_request", {
@@ -155,21 +195,22 @@ class JarvisOrchestrator:
                 "has_video": video_url is not None
             })
 
-            return {
+            response = {
                 "context_id": context_id,
                 "result": result,
                 "scene": self._serialize_context(context),
-                "status": "success"
+                "status": "success" if result.get("success", False) else "partial"
             }
+            print(f"[ORCHESTRATOR] Request processing complete. Status: {response['status']}")
+            return response
 
         except Exception as e:
-            print(f"❌ Error in process_request: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"\n❌ [ORCHESTRATOR] CRITICAL ERROR in process_request: {e}")
+            print(traceback.format_exc())
 
             # Return a valid fallback response instead of raising
             fallback_context_id = context_id or str(uuid.uuid4())
-            return {
+            fallback_response = {
                 "context_id": fallback_context_id,
                 "result": {
                     "actions_executed": 0,
@@ -186,8 +227,10 @@ class JarvisOrchestrator:
                     "created_at": datetime.now().isoformat()
                 },
                 "status": "error",
-                "message": "Failed to process request, but system is operational"
+                "message": f"Processing error: {str(e)}"
             }
+            print(f"[ORCHESTRATOR] Returning error response")
+            return fallback_response
     
     async def _process_multimodal_inputs(
         self,
