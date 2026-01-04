@@ -23,12 +23,24 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     global orchestrator
     print("🤖 Initializing Jarvis...")
-    orchestrator = JarvisOrchestrator()
-    await orchestrator.initialize()
-    print("✅ Jarvis is ready!")
+    try:
+        orchestrator = JarvisOrchestrator()
+        await orchestrator.initialize()
+        print("✅ Jarvis is ready!")
+    except Exception as e:
+        print(f"❌ Error initializing Jarvis: {e}")
+        import traceback
+        traceback.print_exc()
+        orchestrator = None
+
     yield
+
     print("👋 Shutting down Jarvis...")
-    await orchestrator.cleanup()
+    try:
+        if orchestrator:
+            await orchestrator.cleanup()
+    except Exception as e:
+        print(f"⚠️ Error during cleanup: {e}")
 
 
 # Create FastAPI app
