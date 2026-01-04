@@ -164,58 +164,84 @@ Return your analysis in a structured JSON format."""
     
     async def _process_with_rules(self, text: str) -> Dict[str, Any]:
         """Fallback rule-based processing"""
-        text_lower = text.lower()
-        
-        # Detect intent
-        intent = "create"
-        if any(word in text_lower for word in ["delete", "remove", "clear"]):
-            intent = "delete"
-        elif any(word in text_lower for word in ["change", "modify", "update", "make"]):
-            intent = "modify"
-        elif any(word in text_lower for word in ["what", "show", "how many", "?"]):
-            intent = "query"
-        
-        # Extract entities
-        entities = []
-        
-        # Common 3D objects
-        objects = ["cube", "sphere", "cylinder", "cone", "plane", "car", "tree", "house", 
-                  "chair", "table", "building", "forest", "mountain", "river", "sky"]
-        for obj in objects:
-            if obj in text_lower:
-                entities.append({
-                    "type": "object",
-                    "value": obj,
-                    "attributes": self._extract_attributes(text_lower, obj)
-                })
-        
-        # Extract colors
-        colors = ["red", "blue", "green", "yellow", "white", "black", "purple", "orange"]
-        attributes = {}
-        for color in colors:
-            if color in text_lower:
-                attributes["color"] = color
-        
-        # Extract sizes
-        sizes = ["small", "large", "big", "tiny", "huge", "medium"]
-        for size in sizes:
-            if size in text_lower:
-                attributes["size"] = size
-        
-        # Extract materials
-        materials = ["wood", "wooden", "metal", "metallic", "glass", "plastic", "stone"]
-        for material in materials:
-            if material in text_lower:
-                attributes["material"] = material.replace("en", "")  # wooden -> wood
-        
-        return {
-            "intent": intent,
-            "entities": entities,
-            "attributes": attributes,
-            "relationships": [],
-            "raw_text": text,
-            "method": "rule_based"
-        }
+        print(f"[NLP_RULES] Processing with rule-based NLP")
+
+        try:
+            text_lower = text.lower()
+
+            # Detect intent
+            intent = "create"
+            if any(word in text_lower for word in ["delete", "remove", "clear"]):
+                intent = "delete"
+            elif any(word in text_lower for word in ["change", "modify", "update", "make"]):
+                intent = "modify"
+            elif any(word in text_lower for word in ["what", "show", "how many", "?"]):
+                intent = "query"
+
+            print(f"[NLP_RULES] Detected intent: {intent}")
+
+            # Extract entities
+            entities = []
+
+            # Common 3D objects
+            objects = ["cube", "sphere", "cylinder", "cone", "plane", "car", "tree", "house",
+                      "chair", "table", "building", "forest", "mountain", "river", "sky"]
+            for obj in objects:
+                if obj in text_lower:
+                    entities.append({
+                        "type": "object",
+                        "value": obj,
+                        "attributes": self._extract_attributes(text_lower, obj)
+                    })
+
+            print(f"[NLP_RULES] Found {len(entities)} entities")
+
+            # Extract colors
+            colors = ["red", "blue", "green", "yellow", "white", "black", "purple", "orange"]
+            attributes = {}
+            for color in colors:
+                if color in text_lower:
+                    attributes["color"] = color
+
+            # Extract sizes
+            sizes = ["small", "large", "big", "tiny", "huge", "medium"]
+            for size in sizes:
+                if size in text_lower:
+                    attributes["size"] = size
+
+            # Extract materials
+            materials = ["wood", "wooden", "metal", "metallic", "glass", "plastic", "stone"]
+            for material in materials:
+                if material in text_lower:
+                    attributes["material"] = material.replace("en", "")  # wooden -> wood
+
+            print(f"[NLP_RULES] Extracted attributes: {attributes}")
+
+            result = {
+                "intent": intent,
+                "entities": entities,
+                "attributes": attributes,
+                "relationships": [],
+                "raw_text": text,
+                "method": "rule_based"
+            }
+            print(f"[NLP_RULES] Rule-based processing successful")
+            return result
+
+        except Exception as e:
+            print(f"❌ [NLP_RULES] Error in rule-based processing: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return absolute minimal safe default
+            return {
+                "intent": "create",
+                "entities": [],
+                "attributes": {},
+                "relationships": [],
+                "raw_text": text,
+                "method": "error_fallback",
+                "error": str(e)
+            }
     
     def _extract_attributes(self, text: str, object_name: str) -> Dict[str, Any]:
         """Extract attributes for a specific object"""
