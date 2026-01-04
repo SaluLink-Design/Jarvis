@@ -39,7 +39,7 @@ async def start_simulation(context_id: str):
 
     # Initialize simulator if not exists
     if not hasattr(context, 'simulator'):
-        from backend.simulation.simulator import Simulator
+        from simulation.simulator import Simulator
         context.simulator = Simulator()
         context.simulator.initialize({
             "objects": context.objects,
