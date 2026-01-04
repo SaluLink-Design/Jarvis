@@ -1,0 +1,30 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# AI/ML Libraries
+torch==2.1.1
+transformers==4.36.0
+accelerate==0.25.0
+diffusers==0.24.0
+openai==1.3.7
+
+# Computer Vision
+opencv-python==4.8.1.78
+Pillow==10.1.0
+numpy==1.24.3
+
+# Video Processing
+yt-dlp==2023.11.16
+moviepy==1.0.3
+
+# Physics/3D
+trimesh==4.0.8
+pyvista==0.42.3
+
+# Utilities
+python-dotenv==1.0.0
+httpx==0.25.2
+pydantic-settings==2.1.0
+
