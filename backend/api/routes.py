@@ -102,7 +102,7 @@ async def get_scene(context_id: str):
     """
     Get current scene state
     """
-    from main import orchestrator
+    from backend.main import orchestrator
     
     if not orchestrator:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
@@ -119,7 +119,7 @@ async def delete_scene(context_id: str):
     """
     Delete a scene context
     """
-    from main import orchestrator
+    from backend.main import orchestrator
     
     if not orchestrator:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
@@ -136,7 +136,7 @@ async def list_scenes():
     """
     List all active scene contexts
     """
-    from main import orchestrator
+    from backend.main import orchestrator
     
     if not orchestrator:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
