@@ -45,35 +45,47 @@ class ComputerVisionProcessor:
     async def process_image(self, image_path: str) -> Dict[str, Any]:
         """
         Analyze an uploaded image
-        
+
         Args:
             image_path: Path to the image file
-            
+
         Returns:
             Extracted visual features and detected objects
         """
+        if not HAS_CV2:
+            # Fallback if CV2 not available
+            return {
+                "dimensions": {"width": 0, "height": 0},
+                "dominant_colors": [],
+                "complexity": 0.0,
+                "depth_estimate": {},
+                "objects": [],
+                "style": {"style_type": "unknown"},
+                "warning": "CV2 not available - using minimal analysis"
+            }
+
         try:
             # Load image
             img = cv2.imread(image_path)
             if img is None:
                 return {"error": "Could not load image"}
-            
+
             # Convert to RGB
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            
+
             # Basic analysis
             height, width = img.shape[:2]
-            
+
             # Detect dominant colors
             dominant_colors = self._extract_dominant_colors(img_rgb)
-            
+
             # Simple edge detection for complexity
             edges = cv2.Canny(img, 100, 200)
             complexity = np.sum(edges > 0) / (height * width)
-            
+
             # Estimate depth (simplified)
             depth_info = self._estimate_depth(img_rgb)
-            
+
             return {
                 "dimensions": {"width": width, "height": height},
                 "dominant_colors": dominant_colors,
@@ -82,7 +94,7 @@ class ComputerVisionProcessor:
                 "objects": [],  # Would be populated by object detection model
                 "style": self._analyze_style(img_rgb)
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
     
