@@ -123,30 +123,70 @@ class JarvisOrchestrator:
             Response with generated 3D content and metadata
         """
         import uuid
+        import traceback
+
+        print(f"\n[ORCHESTRATOR] Processing request")
+        print(f"  Text: {text[:50] if text else 'None'}...")
+        print(f"  Context ID: {context_id}")
 
         try:
-            print(f"Processing request - text: {text}, context_id: {context_id}")
-
             # Get or create context
             if context_id and context_id in self.active_contexts:
                 context = self.active_contexts[context_id]
+                print(f"[ORCHESTRATOR] Using existing context: {context_id}")
             else:
                 context_id = str(uuid.uuid4())
                 context = SceneContext(scene_id=context_id)
                 self.active_contexts[context_id] = context
+                print(f"[ORCHESTRATOR] Created new context: {context_id}")
 
-            # Process multimodal inputs
-            processed_data = await self._process_multimodal_inputs(
-                text=text,
-                image_path=image_path,
-                video_url=video_url
-            )
+            try:
+                # Process multimodal inputs
+                print(f"[ORCHESTRATOR] Processing multimodal inputs...")
+                processed_data = await self._process_multimodal_inputs(
+                    text=text,
+                    image_path=image_path,
+                    video_url=video_url
+                )
+                print(f"[ORCHESTRATOR] Multimodal processing complete")
+            except Exception as e:
+                print(f"⚠️ [ORCHESTRATOR] Multimodal processing error: {e}")
+                traceback.print_exc()
+                processed_data = {
+                    "text_analysis": None,
+                    "image_analysis": None,
+                    "video_analysis": None
+                }
 
-            # Integrate information and plan actions
-            action_plan = await self._create_action_plan(processed_data, context)
+            try:
+                # Integrate information and plan actions
+                print(f"[ORCHESTRATOR] Creating action plan...")
+                action_plan = await self._create_action_plan(processed_data, context)
+                print(f"[ORCHESTRATOR] Action plan created with {len(action_plan)} actions")
+            except Exception as e:
+                print(f"⚠️ [ORCHESTRATOR] Action plan creation error: {e}")
+                traceback.print_exc()
+                # Fallback: create a simple default action
+                action_plan = [{
+                    "action": "generate_object",
+                    "object_type": "cube",
+                    "attributes": {"color": "blue"}
+                }]
 
-            # Execute action plan
-            result = await self._execute_action_plan(action_plan, context)
+            try:
+                # Execute action plan
+                print(f"[ORCHESTRATOR] Executing action plan...")
+                result = await self._execute_action_plan(action_plan, context)
+                print(f"[ORCHESTRATOR] Action plan executed. Success: {result.get('success', False)}")
+            except Exception as e:
+                print(f"⚠️ [ORCHESTRATOR] Action plan execution error: {e}")
+                traceback.print_exc()
+                result = {
+                    "actions_executed": 0,
+                    "results": [],
+                    "success": False,
+                    "error": str(e)
+                }
 
             # Update context history
             context.add_to_history("user_request", {
@@ -155,21 +195,22 @@ class JarvisOrchestrator:
                 "has_video": video_url is not None
             })
 
-            return {
+            response = {
                 "context_id": context_id,
                 "result": result,
                 "scene": self._serialize_context(context),
-                "status": "success"
+                "status": "success" if result.get("success", False) else "partial"
             }
+            print(f"[ORCHESTRATOR] Request processing complete. Status: {response['status']}")
+            return response
 
         except Exception as e:
-            print(f"❌ Error in process_request: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"\n❌ [ORCHESTRATOR] CRITICAL ERROR in process_request: {e}")
+            print(traceback.format_exc())
 
             # Return a valid fallback response instead of raising
             fallback_context_id = context_id or str(uuid.uuid4())
-            return {
+            fallback_response = {
                 "context_id": fallback_context_id,
                 "result": {
                     "actions_executed": 0,
@@ -186,8 +227,10 @@ class JarvisOrchestrator:
                     "created_at": datetime.now().isoformat()
                 },
                 "status": "error",
-                "message": "Failed to process request, but system is operational"
+                "message": f"Processing error: {str(e)}"
             }
+            print(f"[ORCHESTRATOR] Returning error response")
+            return fallback_response
     
     async def _process_multimodal_inputs(
         self,
@@ -242,73 +285,92 @@ class JarvisOrchestrator:
         """
         Create a sequence of actions based on processed inputs
         """
+        print(f"[ACTION_PLAN] Creating action plan from processed data")
         plan = []
 
-        text_analysis = processed_data.get("text_analysis") or {}
-        image_analysis = processed_data.get("image_analysis") or {}
+        try:
+            text_analysis = processed_data.get("text_analysis") or {}
+            image_analysis = processed_data.get("image_analysis") or {}
 
-        # Analyze intent from text
-        if text_analysis and not text_analysis.get("error"):
-            intent = text_analysis.get("intent", "create")
-            entities = text_analysis.get("entities", [])
-            attributes = text_analysis.get("attributes", {})
+            # Analyze intent from text
+            if text_analysis and not text_analysis.get("error"):
+                print(f"[ACTION_PLAN] Text analysis available")
+                intent = text_analysis.get("intent", "create")
+                entities = text_analysis.get("entities", [])
+                attributes = text_analysis.get("attributes", {})
+                print(f"[ACTION_PLAN] Intent: {intent}, Entities: {len(entities)}, Attributes: {attributes}")
 
-            if intent == "create":
-                # Plan for creating new objects
-                if entities:
-                    for entity in entities:
-                        if entity.get("type") == "object":
-                            plan.append({
-                                "action": "generate_object",
-                                "object_type": entity.get("value"),
-                                "attributes": entity.get("attributes", {})
-                            })
-                        elif entity.get("type") == "environment":
-                            plan.append({
-                                "action": "generate_environment",
-                                "environment_type": entity.get("value")
-                            })
-                else:
-                    # No entities found, create a default object
+                if intent == "create":
+                    # Plan for creating new objects
+                    if entities:
+                        for entity in entities:
+                            if entity.get("type") == "object":
+                                plan.append({
+                                    "action": "generate_object",
+                                    "object_type": entity.get("value"),
+                                    "attributes": entity.get("attributes", {})
+                                })
+                            elif entity.get("type") == "environment":
+                                plan.append({
+                                    "action": "generate_environment",
+                                    "environment_type": entity.get("value")
+                                })
+                    else:
+                        # No entities found, create a default object
+                        print(f"[ACTION_PLAN] No entities found, using default cube")
+                        plan.append({
+                            "action": "generate_object",
+                            "object_type": "cube",
+                            "attributes": attributes
+                        })
+
+                elif intent == "modify":
+                    # Plan for modifying existing objects
                     plan.append({
-                        "action": "generate_object",
-                        "object_type": "cube",
-                        "attributes": attributes
+                        "action": "modify_scene",
+                        "modifications": text_analysis.get("modifications", {})
                     })
 
-            elif intent == "modify":
-                # Plan for modifying existing objects
+                elif intent == "delete":
+                    # Plan for deleting objects
+                    plan.append({
+                        "action": "delete_objects",
+                        "targets": entities
+                    })
+
+            # Enhance with image data
+            if image_analysis and not image_analysis.get("error"):
+                print(f"[ACTION_PLAN] Image analysis available")
+                detected_objects = image_analysis.get("objects", [])
+                if detected_objects:
+                    plan.append({
+                        "action": "reference_image",
+                        "objects": detected_objects,
+                        "style": image_analysis.get("style", {})
+                    })
+
+            # If no plan was created, add a default action
+            if not plan:
+                print(f"[ACTION_PLAN] No plan created, using default cube")
                 plan.append({
-                    "action": "modify_scene",
-                    "modifications": text_analysis.get("modifications", {})
+                    "action": "generate_object",
+                    "object_type": "cube",
+                    "attributes": {"color": "blue"}
                 })
 
-            elif intent == "delete":
-                # Plan for deleting objects
-                plan.append({
-                    "action": "delete_objects",
-                    "targets": entities
-                })
+            print(f"[ACTION_PLAN] Plan created with {len(plan)} actions: {[p['action'] for p in plan]}")
+            return plan
 
-        # Enhance with image data
-        if image_analysis and not image_analysis.get("error"):
-            detected_objects = image_analysis.get("objects", [])
-            if detected_objects:
-                plan.append({
-                    "action": "reference_image",
-                    "objects": detected_objects,
-                    "style": image_analysis.get("style", {})
-                })
-
-        # If no plan was created, add a default action
-        if not plan:
-            plan.append({
+        except Exception as e:
+            print(f"⚠️ [ACTION_PLAN] Error in action plan creation: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return a default plan
+            return [{
                 "action": "generate_object",
                 "object_type": "cube",
                 "attributes": {"color": "blue"}
-            })
-
-        return plan
+            }]
     
     async def _execute_action_plan(
         self,
@@ -316,36 +378,54 @@ class JarvisOrchestrator:
         context: SceneContext
     ) -> Dict[str, Any]:
         """Execute the planned actions"""
+        print(f"[EXECUTOR] Executing {len(action_plan)} actions")
         results = []
 
-        for action in action_plan:
-            try:
-                action_type = action.get("action")
+        for i, action in enumerate(action_plan):
+            action_type = action.get("action", "unknown")
+            print(f"[EXECUTOR] Action {i+1}/{len(action_plan)}: {action_type}")
 
+            try:
                 if action_type == "generate_object":
                     result = await self._generate_object(action, context)
                     results.append(result)
+                    print(f"[EXECUTOR]   ✓ Generated object: {action.get('object_type')}")
 
                 elif action_type == "generate_environment":
                     result = await self._generate_environment(action, context)
                     results.append(result)
+                    print(f"[EXECUTOR]   ✓ Generated environment")
 
                 elif action_type == "modify_scene":
                     result = await self._modify_scene(action, context)
                     results.append(result)
+                    print(f"[EXECUTOR]   ✓ Modified scene")
+
+                else:
+                    print(f"[EXECUTOR]   ⚠️ Unknown action type: {action_type}")
+                    results.append({
+                        "status": "error",
+                        "action": action_type,
+                        "error": f"Unknown action type: {action_type}"
+                    })
 
             except Exception as e:
-                print(f"Error executing action {action_type}: {e}")
+                print(f"[EXECUTOR]   ❌ Error executing {action_type}: {e}")
+                import traceback
+                traceback.print_exc()
                 results.append({
                     "status": "error",
                     "action": action_type,
                     "error": str(e)
                 })
 
+        success_count = len([r for r in results if r.get("status") == "success"])
+        print(f"[EXECUTOR] Execution complete. {success_count}/{len(results)} successful")
+
         return {
             "actions_executed": len(results),
             "results": results,
-            "success": any(r.get("status") == "success" for r in results)
+            "success": success_count > 0
         }
     
     async def _generate_object(
@@ -354,29 +434,50 @@ class JarvisOrchestrator:
         context: SceneContext
     ) -> Dict[str, Any]:
         """Generate a 3D object"""
-        try:
-            object_type = action.get("object_type", "cube")
-            attributes = action.get("attributes", {})
+        import traceback
 
+        object_type = action.get("object_type", "cube")
+        attributes = action.get("attributes", {})
+
+        print(f"[GENERATOR] Generating object: {object_type}, attributes: {attributes}")
+
+        try:
             # Use text-to-3D generator
             if self.text_to_3d:
-                object_data = await self.text_to_3d.generate(
-                    prompt=f"a {object_type}",
-                    attributes=attributes
-                )
+                try:
+                    print(f"[GENERATOR] Calling text_to_3d.generate...")
+                    object_data = await self.text_to_3d.generate(
+                        prompt=f"a {object_type}",
+                        attributes=attributes
+                    )
+                    print(f"[GENERATOR] Generated object data received")
 
-                # Add to context
-                context.objects.append(object_data)
+                    # Add to context
+                    context.objects.append(object_data)
+                    print(f"[GENERATOR] Added object to context. Total objects: {len(context.objects)}")
 
-                return {
-                    "status": "success",
-                    "object": object_data
-                }
+                    return {
+                        "status": "success",
+                        "object": object_data
+                    }
+                except Exception as gen_error:
+                    print(f"⚠️ [GENERATOR] Error in text_to_3d.generate: {gen_error}")
+                    traceback.print_exc()
+                    raise
 
-            return {"status": "error", "message": "3D generator not available"}
+            print(f"⚠️ [GENERATOR] text_to_3d generator not available")
+            return {
+                "status": "error",
+                "message": "3D generator not available"
+            }
         except Exception as e:
-            print(f"Error generating object: {e}")
-            return {"status": "error", "message": str(e)}
+            print(f"❌ [GENERATOR] Error generating object: {e}")
+            traceback.print_exc()
+            return {
+                "status": "error",
+                "message": str(e),
+                "object_type": object_type
+            }
     
     async def _generate_environment(
         self,

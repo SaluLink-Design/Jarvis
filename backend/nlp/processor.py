@@ -55,21 +55,63 @@ Return your analysis in a structured JSON format."""
     async def process(self, text: str) -> Dict[str, Any]:
         """
         Process natural language input
-        
+
         Args:
             text: User's natural language command
-            
+
         Returns:
             Structured analysis of the input
         """
+        print(f"[NLP] Processing text: {text[:50]}...")
+
         if self.client:
-            return await self._process_with_llm(text)
+            try:
+                print(f"[NLP] Using LLM processor")
+                return await self._process_with_llm(text)
+            except Exception as e:
+                print(f"⚠️ [NLP] LLM processing failed: {e}, falling back to rules")
+                try:
+                    return await self._process_with_rules(text)
+                except Exception as rule_error:
+                    print(f"❌ [NLP] Rule-based processing also failed: {rule_error}")
+                    # Return a safe default
+                    return {
+                        "intent": "create",
+                        "entities": [],
+                        "attributes": {},
+                        "relationships": [],
+                        "raw_text": text,
+                        "method": "error_fallback",
+                        "error": str(rule_error)
+                    }
         else:
-            return await self._process_with_rules(text)
+            try:
+                print(f"[NLP] Using rule-based processor")
+                return await self._process_with_rules(text)
+            except Exception as e:
+                print(f"❌ [NLP] Rule-based processing failed: {e}")
+                # Return a safe default
+                return {
+                    "intent": "create",
+                    "entities": [],
+                    "attributes": {},
+                    "relationships": [],
+                    "raw_text": text,
+                    "method": "error_fallback",
+                    "error": str(e)
+                }
     
     async def _process_with_llm(self, text: str) -> Dict[str, Any]:
         """Process using OpenAI GPT"""
+        import traceback
+
+        print(f"[NLP_LLM] Starting LLM processing")
         try:
+            if not self.client:
+                print(f"[NLP_LLM] Client is None, cannot process with LLM")
+                raise Exception("OpenAI client not initialized")
+
+            print(f"[NLP_LLM] Sending request to OpenAI")
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -79,16 +121,20 @@ Return your analysis in a structured JSON format."""
                 temperature=0.3,
                 max_tokens=500
             )
-            
+
+            print(f"[NLP_LLM] Response received from OpenAI")
             # Parse the response
             content = response.choices[0].message.content
-            
+
             # Extract intent and entities
             result = self._parse_llm_response(content, text)
+            print(f"[NLP_LLM] LLM processing successful")
             return result
-            
+
         except Exception as e:
-            print(f"❌ LLM processing error: {e}")
+            print(f"❌ [NLP_LLM] LLM processing error: {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[NLP_LLM] Falling back to rule-based processing")
             return await self._process_with_rules(text)
     
     def _parse_llm_response(self, response: str, original_text: str) -> Dict[str, Any]:
@@ -118,58 +164,84 @@ Return your analysis in a structured JSON format."""
     
     async def _process_with_rules(self, text: str) -> Dict[str, Any]:
         """Fallback rule-based processing"""
-        text_lower = text.lower()
-        
-        # Detect intent
-        intent = "create"
-        if any(word in text_lower for word in ["delete", "remove", "clear"]):
-            intent = "delete"
-        elif any(word in text_lower for word in ["change", "modify", "update", "make"]):
-            intent = "modify"
-        elif any(word in text_lower for word in ["what", "show", "how many", "?"]):
-            intent = "query"
-        
-        # Extract entities
-        entities = []
-        
-        # Common 3D objects
-        objects = ["cube", "sphere", "cylinder", "cone", "plane", "car", "tree", "house", 
-                  "chair", "table", "building", "forest", "mountain", "river", "sky"]
-        for obj in objects:
-            if obj in text_lower:
-                entities.append({
-                    "type": "object",
-                    "value": obj,
-                    "attributes": self._extract_attributes(text_lower, obj)
-                })
-        
-        # Extract colors
-        colors = ["red", "blue", "green", "yellow", "white", "black", "purple", "orange"]
-        attributes = {}
-        for color in colors:
-            if color in text_lower:
-                attributes["color"] = color
-        
-        # Extract sizes
-        sizes = ["small", "large", "big", "tiny", "huge", "medium"]
-        for size in sizes:
-            if size in text_lower:
-                attributes["size"] = size
-        
-        # Extract materials
-        materials = ["wood", "wooden", "metal", "metallic", "glass", "plastic", "stone"]
-        for material in materials:
-            if material in text_lower:
-                attributes["material"] = material.replace("en", "")  # wooden -> wood
-        
-        return {
-            "intent": intent,
-            "entities": entities,
-            "attributes": attributes,
-            "relationships": [],
-            "raw_text": text,
-            "method": "rule_based"
-        }
+        print(f"[NLP_RULES] Processing with rule-based NLP")
+
+        try:
+            text_lower = text.lower()
+
+            # Detect intent
+            intent = "create"
+            if any(word in text_lower for word in ["delete", "remove", "clear"]):
+                intent = "delete"
+            elif any(word in text_lower for word in ["change", "modify", "update", "make"]):
+                intent = "modify"
+            elif any(word in text_lower for word in ["what", "show", "how many", "?"]):
+                intent = "query"
+
+            print(f"[NLP_RULES] Detected intent: {intent}")
+
+            # Extract entities
+            entities = []
+
+            # Common 3D objects
+            objects = ["cube", "sphere", "cylinder", "cone", "plane", "car", "tree", "house",
+                      "chair", "table", "building", "forest", "mountain", "river", "sky"]
+            for obj in objects:
+                if obj in text_lower:
+                    entities.append({
+                        "type": "object",
+                        "value": obj,
+                        "attributes": self._extract_attributes(text_lower, obj)
+                    })
+
+            print(f"[NLP_RULES] Found {len(entities)} entities")
+
+            # Extract colors
+            colors = ["red", "blue", "green", "yellow", "white", "black", "purple", "orange"]
+            attributes = {}
+            for color in colors:
+                if color in text_lower:
+                    attributes["color"] = color
+
+            # Extract sizes
+            sizes = ["small", "large", "big", "tiny", "huge", "medium"]
+            for size in sizes:
+                if size in text_lower:
+                    attributes["size"] = size
+
+            # Extract materials
+            materials = ["wood", "wooden", "metal", "metallic", "glass", "plastic", "stone"]
+            for material in materials:
+                if material in text_lower:
+                    attributes["material"] = material.replace("en", "")  # wooden -> wood
+
+            print(f"[NLP_RULES] Extracted attributes: {attributes}")
+
+            result = {
+                "intent": intent,
+                "entities": entities,
+                "attributes": attributes,
+                "relationships": [],
+                "raw_text": text,
+                "method": "rule_based"
+            }
+            print(f"[NLP_RULES] Rule-based processing successful")
+            return result
+
+        except Exception as e:
+            print(f"❌ [NLP_RULES] Error in rule-based processing: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return absolute minimal safe default
+            return {
+                "intent": "create",
+                "entities": [],
+                "attributes": {},
+                "relationships": [],
+                "raw_text": text,
+                "method": "error_fallback",
+                "error": str(e)
+            }
     
     def _extract_attributes(self, text: str, object_name: str) -> Dict[str, Any]:
         """Extract attributes for a specific object"""
