@@ -6,8 +6,16 @@ and semantic parsing for 3D scene generation.
 """
 from typing import Dict, Any, List, Optional
 import os
-from openai import AsyncOpenAI
 import re
+
+# Try to import OpenAI, use fallback if unavailable
+try:
+    from openai import AsyncOpenAI
+    HAS_OPENAI = True
+except ImportError:
+    print("⚠️ Warning: OpenAI library not available, using rule-based NLP")
+    HAS_OPENAI = False
+    AsyncOpenAI = None
 
 
 class NLPProcessor:
@@ -174,4 +182,3 @@ Return your analysis in a structured JSON format."""
                     attributes["material"] = word
         
         return attributes
-
