@@ -95,7 +95,7 @@ class JarvisOrchestrator:
         }
     
     async def process_request(
-        self, 
+        self,
         text: Optional[str] = None,
         image_path: Optional[str] = None,
         video_url: Optional[str] = None,
@@ -103,50 +103,58 @@ class JarvisOrchestrator:
     ) -> Dict[str, Any]:
         """
         Main entry point for processing user requests
-        
+
         Args:
             text: Natural language command
             image_path: Path to uploaded image
             video_url: YouTube or video URL
             context_id: Existing scene context ID
-            
+
         Returns:
             Response with generated 3D content and metadata
         """
-        # Get or create context
-        if context_id and context_id in self.active_contexts:
-            context = self.active_contexts[context_id]
-        else:
-            import uuid
-            context_id = str(uuid.uuid4())
-            context = SceneContext(scene_id=context_id)
-            self.active_contexts[context_id] = context
-        
-        # Process multimodal inputs
-        processed_data = await self._process_multimodal_inputs(
-            text=text,
-            image_path=image_path,
-            video_url=video_url
-        )
-        
-        # Integrate information and plan actions
-        action_plan = await self._create_action_plan(processed_data, context)
-        
-        # Execute action plan
-        result = await self._execute_action_plan(action_plan, context)
-        
-        # Update context history
-        context.add_to_history("user_request", {
-            "text": text,
-            "has_image": image_path is not None,
-            "has_video": video_url is not None
-        })
-        
-        return {
-            "context_id": context_id,
-            "result": result,
-            "scene": self._serialize_context(context)
-        }
+        try:
+            print(f"Processing request - text: {text}, context_id: {context_id}")
+
+            # Get or create context
+            if context_id and context_id in self.active_contexts:
+                context = self.active_contexts[context_id]
+            else:
+                import uuid
+                context_id = str(uuid.uuid4())
+                context = SceneContext(scene_id=context_id)
+                self.active_contexts[context_id] = context
+
+            # Process multimodal inputs
+            processed_data = await self._process_multimodal_inputs(
+                text=text,
+                image_path=image_path,
+                video_url=video_url
+            )
+
+            # Integrate information and plan actions
+            action_plan = await self._create_action_plan(processed_data, context)
+
+            # Execute action plan
+            result = await self._execute_action_plan(action_plan, context)
+
+            # Update context history
+            context.add_to_history("user_request", {
+                "text": text,
+                "has_image": image_path is not None,
+                "has_video": video_url is not None
+            })
+
+            return {
+                "context_id": context_id,
+                "result": result,
+                "scene": self._serialize_context(context)
+            }
+        except Exception as e:
+            print(f"Error in process_request: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     async def _process_multimodal_inputs(
         self,
@@ -263,30 +271,34 @@ class JarvisOrchestrator:
         }
     
     async def _generate_object(
-        self, 
+        self,
         action: Dict[str, Any],
         context: SceneContext
     ) -> Dict[str, Any]:
         """Generate a 3D object"""
-        object_type = action.get("object_type", "cube")
-        attributes = action.get("attributes", {})
-        
-        # Use text-to-3D generator
-        if self.text_to_3d:
-            object_data = await self.text_to_3d.generate(
-                prompt=f"a {object_type}",
-                attributes=attributes
-            )
-            
-            # Add to context
-            context.objects.append(object_data)
-            
-            return {
-                "status": "success",
-                "object": object_data
-            }
-        
-        return {"status": "error", "message": "3D generator not available"}
+        try:
+            object_type = action.get("object_type", "cube")
+            attributes = action.get("attributes", {})
+
+            # Use text-to-3D generator
+            if self.text_to_3d:
+                object_data = await self.text_to_3d.generate(
+                    prompt=f"a {object_type}",
+                    attributes=attributes
+                )
+
+                # Add to context
+                context.objects.append(object_data)
+
+                return {
+                    "status": "success",
+                    "object": object_data
+                }
+
+            return {"status": "error", "message": "3D generator not available"}
+        except Exception as e:
+            print(f"Error generating object: {e}")
+            return {"status": "error", "message": str(e)}
     
     async def _generate_environment(
         self,
@@ -294,36 +306,44 @@ class JarvisOrchestrator:
         context: SceneContext
     ) -> Dict[str, Any]:
         """Generate an environment"""
-        env_type = action.get("environment_type", "basic")
-        
-        if self.scene_builder:
-            env_data = await self.scene_builder.create_environment(env_type)
-            context.environment = env_data
-            
-            return {
-                "status": "success",
-                "environment": env_data
-            }
-        
-        return {"status": "error", "message": "Scene builder not available"}
-    
+        try:
+            env_type = action.get("environment_type", "basic")
+
+            if self.scene_builder:
+                env_data = await self.scene_builder.create_environment(env_type)
+                context.environment = env_data
+
+                return {
+                    "status": "success",
+                    "environment": env_data
+                }
+
+            return {"status": "error", "message": "Scene builder not available"}
+        except Exception as e:
+            print(f"Error generating environment: {e}")
+            return {"status": "error", "message": str(e)}
+
     async def _modify_scene(
         self,
         action: Dict[str, Any],
         context: SceneContext
     ) -> Dict[str, Any]:
         """Modify existing scene elements"""
-        modifications = action.get("modifications", {})
-        
-        # Apply modifications to context
-        for key, value in modifications.items():
-            if hasattr(context, key):
-                setattr(context, key, value)
-        
-        return {
-            "status": "success",
-            "modifications": modifications
-        }
+        try:
+            modifications = action.get("modifications", {})
+
+            # Apply modifications to context
+            for key, value in modifications.items():
+                if hasattr(context, key):
+                    setattr(context, key, value)
+
+            return {
+                "status": "success",
+                "modifications": modifications
+            }
+        except Exception as e:
+            print(f"Error modifying scene: {e}")
+            return {"status": "error", "message": str(e)}
     
     def _serialize_context(self, context: SceneContext) -> Dict[str, Any]:
         """Convert context to JSON-serializable format"""

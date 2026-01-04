@@ -28,10 +28,13 @@ async def lifespan(app: FastAPI):
         await orchestrator.initialize()
         print("✅ Jarvis is ready!")
     except Exception as e:
-        print(f"❌ Error initializing Jarvis: {e}")
+        print(f"⚠️ Warning during Jarvis initialization: {e}")
         import traceback
         traceback.print_exc()
-        orchestrator = None
+        # Ensure orchestrator is still created even if initialization partially failed
+        if orchestrator is None:
+            print("Creating minimal orchestrator instance...")
+            orchestrator = JarvisOrchestrator()
 
     yield
 
@@ -108,7 +111,28 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "orchestrator_ready": orchestrator is not None
+        "orchestrator_ready": orchestrator is not None,
+        "modules": {
+            "nlp": orchestrator.nlp_processor is not None if orchestrator else False,
+            "cv": orchestrator.cv_processor is not None if orchestrator else False,
+            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
+            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False
+        } if orchestrator else {}
+    }
+
+
+@app.get("/api/health")
+async def api_health_check():
+    """API Health check endpoint"""
+    return {
+        "status": "healthy",
+        "orchestrator_ready": orchestrator is not None,
+        "modules": {
+            "nlp": orchestrator.nlp_processor is not None if orchestrator else False,
+            "cv": orchestrator.cv_processor is not None if orchestrator else False,
+            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
+            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False
+        } if orchestrator else {}
     }
 
 
