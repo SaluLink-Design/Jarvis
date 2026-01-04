@@ -378,36 +378,54 @@ class JarvisOrchestrator:
         context: SceneContext
     ) -> Dict[str, Any]:
         """Execute the planned actions"""
+        print(f"[EXECUTOR] Executing {len(action_plan)} actions")
         results = []
 
-        for action in action_plan:
-            try:
-                action_type = action.get("action")
+        for i, action in enumerate(action_plan):
+            action_type = action.get("action", "unknown")
+            print(f"[EXECUTOR] Action {i+1}/{len(action_plan)}: {action_type}")
 
+            try:
                 if action_type == "generate_object":
                     result = await self._generate_object(action, context)
                     results.append(result)
+                    print(f"[EXECUTOR]   ✓ Generated object: {action.get('object_type')}")
 
                 elif action_type == "generate_environment":
                     result = await self._generate_environment(action, context)
                     results.append(result)
+                    print(f"[EXECUTOR]   ✓ Generated environment")
 
                 elif action_type == "modify_scene":
                     result = await self._modify_scene(action, context)
                     results.append(result)
+                    print(f"[EXECUTOR]   ✓ Modified scene")
+
+                else:
+                    print(f"[EXECUTOR]   ⚠️ Unknown action type: {action_type}")
+                    results.append({
+                        "status": "error",
+                        "action": action_type,
+                        "error": f"Unknown action type: {action_type}"
+                    })
 
             except Exception as e:
-                print(f"Error executing action {action_type}: {e}")
+                print(f"[EXECUTOR]   ❌ Error executing {action_type}: {e}")
+                import traceback
+                traceback.print_exc()
                 results.append({
                     "status": "error",
                     "action": action_type,
                     "error": str(e)
                 })
 
+        success_count = len([r for r in results if r.get("status") == "success"])
+        print(f"[EXECUTOR] Execution complete. {success_count}/{len(results)} successful")
+
         return {
             "actions_executed": len(results),
             "results": results,
-            "success": any(r.get("status") == "success" for r in results)
+            "success": success_count > 0
         }
     
     async def _generate_object(
