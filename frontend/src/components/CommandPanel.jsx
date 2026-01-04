@@ -109,15 +109,22 @@ const CommandPanel = () => {
 
         {/* Selected Image Preview */}
         {selectedImage && (
-          <div className="flex items-center space-x-2 text-sm text-gray-400">
-            <span>📎 {selectedImage.name}</span>
-            <button
-              type="button"
-              onClick={() => setSelectedImage(null)}
-              className="text-red-400 hover:text-red-300"
-            >
-              Remove
-            </button>
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <span>📎 {selectedImage.name}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedImage(null)}
+                className="text-red-400 hover:text-red-300"
+              >
+                Remove
+              </button>
+            </div>
+            {!command.trim() && (
+              <div className="px-3 py-2 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-md text-sm text-blue-300">
+                💡 Tip: Describe what you'd like to create from this image (e.g., "Create a modern chair based on this image")
+              </div>
+            )}
           </div>
         )}
 
