@@ -8,9 +8,16 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/api')
+      },
+      '/health': {
+        target: 'http://localhost:8000',
         changeOrigin: true
       }
     }
+  },
+  define: {
+    __DEV__: JSON.stringify(process.env.NODE_ENV === 'development')
   }
 })
-
