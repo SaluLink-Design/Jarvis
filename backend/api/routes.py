@@ -30,14 +30,14 @@ async def process_request(
 ):
     """
     Main endpoint for processing multimodal requests
-    
+
     Accepts:
     - text: Natural language command
     - context_id: Existing scene context ID
     - image: Uploaded image file
     - video_url: YouTube or video URL
     """
-    from main import orchestrator
+    from backend.main import orchestrator
     
     if not orchestrator:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
