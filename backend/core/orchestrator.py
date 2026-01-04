@@ -401,6 +401,11 @@ class JarvisOrchestrator:
                     results.append(result)
                     print(f"[EXECUTOR]   ✓ Modified scene")
 
+                elif action_type == "delete_objects":
+                    result = await self._delete_objects(action, context)
+                    results.append(result)
+                    print(f"[EXECUTOR]   ✓ Deleted objects")
+
                 else:
                     print(f"[EXECUTOR]   ⚠️ Unknown action type: {action_type}")
                     results.append({
