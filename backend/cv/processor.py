@@ -136,14 +136,17 @@ class ComputerVisionProcessor:
         colors = unique_colors[:min(k, len(unique_colors))]
         return [color.tolist() for color in colors]
     
-    def _estimate_depth(self, img: np.ndarray) -> Dict[str, Any]:
+    def _estimate_depth(self, img) -> Dict[str, Any]:
         """Simplified depth estimation"""
+        if not HAS_CV2 or not HAS_NUMPY:
+            return {"method": "unavailable", "avg_depth": 0.0}
+
         # Convert to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        
+
         # Use intensity as rough depth proxy
         avg_intensity = np.mean(gray)
-        
+
         return {
             "method": "intensity_proxy",
             "avg_depth": float(avg_intensity / 255.0),
