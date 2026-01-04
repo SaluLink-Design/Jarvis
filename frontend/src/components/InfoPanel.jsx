@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useJarvisStore } from '../store/jarvisStore';
+import jarvisApi from '../api/jarvisApi';
 
 const InfoPanel = () => {
   const { sceneData, commandHistory, loading, error } = useJarvisStore();
@@ -117,4 +118,3 @@ const InfoPanel = () => {
 };
 
 export default InfoPanel;
-
