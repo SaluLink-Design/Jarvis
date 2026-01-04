@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
+import traceback
 
 from nlp.processor import NLPProcessor
 from cv.processor import ComputerVisionProcessor
