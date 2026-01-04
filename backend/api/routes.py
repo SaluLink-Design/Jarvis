@@ -77,7 +77,7 @@ async def process_text(request: TextRequest):
     """
     Process text-only commands
     """
-    from main import orchestrator
+    from backend.main import orchestrator
     import traceback
 
     if not orchestrator:
