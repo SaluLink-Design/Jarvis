@@ -62,14 +62,41 @@ async def process_request(
             video_url=video_url,
             context_id=context_id
         )
+
+        # Check if the orchestrator returned an error status
+        if result.get("status") == "error":
+            print(f"⚠️ Orchestrator returned error status")
+            return result
+
         return result
     except Exception as e:
         import traceback
+        from datetime import datetime
         error_msg = str(e)
         error_trace = traceback.format_exc()
         print(f"ERROR in process_request: {error_msg}")
         print(f"Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Processing error: {error_msg}")
+
+        # Return error as a valid JSON response
+        return {
+            "context_id": str(uuid.uuid4()),
+            "result": {
+                "actions_executed": 0,
+                "results": [],
+                "success": False,
+                "error": error_msg
+            },
+            "scene": {
+                "scene_id": str(uuid.uuid4()),
+                "objects": [],
+                "environment": {},
+                "lighting": {},
+                "camera": {},
+                "created_at": datetime.now().isoformat()
+            },
+            "status": "error",
+            "message": f"Endpoint error: {error_msg}"
+        }
 
 
 @router.get("/test")
@@ -88,6 +115,7 @@ async def process_text(request: TextRequest):
     Process text-only commands
     """
     import traceback
+    from datetime import datetime
 
     try:
         from main import orchestrator
@@ -106,7 +134,13 @@ async def process_text(request: TextRequest):
             context_id=request.context_id
         )
 
-        print(f"Successfully processed request. Context ID: {result.get('context_id', 'unknown')}")
+        # Check if the orchestrator returned an error status but still return 200
+        if result.get("status") == "error":
+            print(f"⚠️ Orchestrator returned error status: {result.get('message', 'Unknown error')}")
+            # Return the error result with 200 status (client will handle the error)
+            return result
+
+        print(f"✅ Successfully processed request. Context ID: {result.get('context_id', 'unknown')}")
         return result
 
     except HTTPException:
@@ -120,7 +154,27 @@ async def process_text(request: TextRequest):
         print(f"Full traceback:")
         print(error_trace)
         print(f"=" * 80)
-        raise HTTPException(status_code=500, detail=f"Processing error: {error_msg}")
+
+        # Return error as a valid JSON response instead of raising HTTPException
+        return {
+            "context_id": str(uuid.uuid4()),
+            "result": {
+                "actions_executed": 0,
+                "results": [],
+                "success": False,
+                "error": error_msg
+            },
+            "scene": {
+                "scene_id": str(uuid.uuid4()),
+                "objects": [],
+                "environment": {},
+                "lighting": {},
+                "camera": {},
+                "created_at": datetime.now().isoformat()
+            },
+            "status": "error",
+            "message": f"Endpoint error: {error_msg}"
+        }
 
 
 @router.get("/scene/{context_id}")
