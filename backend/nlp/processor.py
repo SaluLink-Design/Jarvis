@@ -103,7 +103,15 @@ Return your analysis in a structured JSON format."""
     
     async def _process_with_llm(self, text: str) -> Dict[str, Any]:
         """Process using OpenAI GPT"""
+        import traceback
+
+        print(f"[NLP_LLM] Starting LLM processing")
         try:
+            if not self.client:
+                print(f"[NLP_LLM] Client is None, cannot process with LLM")
+                raise Exception("OpenAI client not initialized")
+
+            print(f"[NLP_LLM] Sending request to OpenAI")
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -113,16 +121,20 @@ Return your analysis in a structured JSON format."""
                 temperature=0.3,
                 max_tokens=500
             )
-            
+
+            print(f"[NLP_LLM] Response received from OpenAI")
             # Parse the response
             content = response.choices[0].message.content
-            
+
             # Extract intent and entities
             result = self._parse_llm_response(content, text)
+            print(f"[NLP_LLM] LLM processing successful")
             return result
-            
+
         except Exception as e:
-            print(f"❌ LLM processing error: {e}")
+            print(f"❌ [NLP_LLM] LLM processing error: {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[NLP_LLM] Falling back to rule-based processing")
             return await self._process_with_rules(text)
     
     def _parse_llm_response(self, response: str, original_text: str) -> Dict[str, Any]:
