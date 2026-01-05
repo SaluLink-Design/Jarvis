@@ -105,13 +105,21 @@ export const useJarvisStore = create((set) => ({
   }),
 
   updateSceneFromResponse: (response) => {
+    console.log('[Store] Updating scene from response:', {
+      contextId: response.context_id,
+      status: response.status,
+      objectCount: response.scene?.objects?.length
+    });
+
     // Check if response has error status
     if (response.status === 'error') {
+      console.error('[Store] Response has error status:', response.message);
       set({
         loading: false,
         error: response.message || 'An error occurred processing your request'
       });
     } else {
+      console.log('[Store] Successfully updated scene data for context:', response.context_id);
       set({
         contextId: response.context_id,
         sceneData: response.scene,
