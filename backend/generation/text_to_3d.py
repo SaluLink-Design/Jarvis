@@ -62,8 +62,12 @@ class TextTo3DGenerator:
             if object_type in self.primitive_shapes:
                 print(f"[3D_GEN] Using primitive shape generator for: {object_type}")
                 model_data = self.primitive_shapes[object_type](attributes)
+            elif object_type == "complex":
+                # For complex objects (including from images), use specialized handling
+                print(f"[3D_GEN] Using complex object generator for image-based request")
+                model_data = self._generate_complex_object(prompt, attributes)
             else:
-                # For complex objects, create a placeholder
+                # For other complex objects, create a placeholder
                 print(f"[3D_GEN] Using complex object generator for: {object_type}")
                 model_data = self._generate_complex_object(prompt, attributes)
 
