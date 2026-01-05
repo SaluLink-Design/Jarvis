@@ -350,7 +350,9 @@ class JarvisOrchestrator:
                                 plan.append({
                                     "action": "generate_object",
                                     "object_type": entity.get("value"),
-                                    "attributes": merged_attrs
+                                    "attributes": merged_attrs,
+                                    "full_description": text,  # Preserve full description for image-based generation
+                                    "source": "text_with_image" if has_image else "text_only"
                                 })
                             elif entity.get("type") == "environment":
                                 plan.append({
