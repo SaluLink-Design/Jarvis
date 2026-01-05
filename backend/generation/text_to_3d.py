@@ -264,7 +264,7 @@ class TextTo3DGenerator:
 
         # Create a more interesting composite based on what's in the image
         # For suits/armor/robots: tall humanoid shape
-        if any(word in prompt_lower for word in ["suit", "armor", "robot", "character"]):
+        if any(word in prompt_lower for word in ["suit", "armor", "robot", "character", "ironman", "iron man"]):
             return {
                 "geometry": {
                     "type": "Group",
