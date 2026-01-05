@@ -620,16 +620,22 @@ class JarvisOrchestrator:
 
         object_type = action.get("object_type", "cube")
         attributes = action.get("attributes", {})
+        full_description = action.get("full_description")
+        source = action.get("source", "text_only")
 
-        print(f"[GENERATOR] Generating object: {object_type}, attributes: {attributes}")
+        print(f"[GENERATOR] Generating object: {object_type}, source: {source}")
+        print(f"[GENERATOR] Full description: {full_description}")
+        print(f"[GENERATOR] Attributes: {attributes}")
 
         try:
             # Use text-to-3D generator
             if self.text_to_3d:
                 try:
                     print(f"[GENERATOR] Calling text_to_3d.generate...")
+                    # Use full description if available, otherwise use object type
+                    prompt = full_description if full_description else f"a {object_type}"
                     object_data = await self.text_to_3d.generate(
-                        prompt=f"a {object_type}",
+                        prompt=prompt,
                         attributes=attributes
                     )
                     print(f"[GENERATOR] Generated object data received")
