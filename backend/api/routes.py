@@ -38,24 +38,43 @@ async def process_request(
     - video_url: YouTube or video URL
     """
     from main import orchestrator
-    
+
+    print(f"\n{'='*80}")
+    print(f"[/api/process] REQUEST RECEIVED")
+    print(f"  Text: {text[:100] if text else 'None'}...")
+    print(f"  Context ID: {context_id}")
+    print(f"  Has Image: {image is not None}")
+    if image:
+        print(f"  Image Filename: {image.filename}")
+    print(f"  Has Video: {video_url is not None}")
+    print(f"{'='*80}\n")
+
     if not orchestrator:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
-    
+
     # Handle image upload
     image_path = None
     if image:
-        # Save uploaded file
-        file_ext = os.path.splitext(image.filename)[1]
-        filename = f"{uuid.uuid4()}{file_ext}"
-        image_path = os.path.join("uploads", filename)
-        
-        with open(image_path, "wb") as f:
-            content = await image.read()
-            f.write(content)
-    
+        try:
+            # Save uploaded file
+            file_ext = os.path.splitext(image.filename)[1]
+            filename = f"{uuid.uuid4()}{file_ext}"
+            image_path = os.path.join("uploads", filename)
+
+            print(f"[/api/process] Saving image to: {image_path}")
+            with open(image_path, "wb") as f:
+                content = await image.read()
+                f.write(content)
+                print(f"[/api/process] Image saved successfully ({len(content)} bytes)")
+        except Exception as save_error:
+            print(f"❌ [/api/process] Failed to save image: {save_error}")
+            import traceback
+            traceback.print_exc()
+            image_path = None
+
     # Process the request
     try:
+        print(f"[/api/process] Calling orchestrator.process_request...")
         result = await orchestrator.process_request(
             text=text,
             image_path=image_path,
@@ -65,17 +84,18 @@ async def process_request(
 
         # Check if the orchestrator returned an error status
         if result.get("status") == "error":
-            print(f"⚠️ Orchestrator returned error status")
+            print(f"⚠️ [/api/process] Orchestrator returned error status: {result.get('message')}")
             return result
 
+        print(f"✅ [/api/process] Request processed successfully")
         return result
     except Exception as e:
         import traceback
         from datetime import datetime
         error_msg = str(e)
         error_trace = traceback.format_exc()
-        print(f"ERROR in process_request: {error_msg}")
-        print(f"Traceback: {error_trace}")
+        print(f"\n❌ [/api/process] ERROR in process_request: {error_msg}")
+        print(f"Traceback: {error_trace}\n")
 
         # Return error as a valid JSON response
         return {
@@ -107,6 +127,41 @@ async def test_endpoint():
         "message": "API is responding",
         "endpoint": "/api/test"
     }
+
+
+@router.get("/diagnostics")
+async def diagnostics():
+    """Get system diagnostics and configuration status"""
+    from main import orchestrator
+    import sys
+
+    openai_key_set = bool(os.getenv("OPENAI_API_KEY"))
+
+    diagnostics_info = {
+        "status": "ok",
+        "orchestrator_initialized": orchestrator is not None,
+        "openai_api_key_set": openai_key_set,
+        "python_version": sys.version,
+        "modules": {
+            "nlp_processor": orchestrator.nlp_processor is not None if orchestrator else False,
+            "cv_processor": orchestrator.cv_processor is not None if orchestrator else False,
+            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
+            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False,
+        },
+        "uploads_dir_exists": os.path.exists("uploads"),
+        "uploads_dir_writable": os.access("uploads", os.W_OK) if os.path.exists("uploads") else False
+    }
+
+    # Check if OpenAI client is initialized
+    if orchestrator and orchestrator.nlp_processor:
+        diagnostics_info["openai_client_initialized"] = orchestrator.nlp_processor.client is not None
+
+    print(f"\n[DIAGNOSTICS] System state:")
+    for key, value in diagnostics_info.items():
+        print(f"  {key}: {value}")
+    print()
+
+    return diagnostics_info
 
 
 @router.post("/text")

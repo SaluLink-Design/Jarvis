@@ -240,6 +240,11 @@ class JarvisOrchestrator:
         video_url: Optional[str]
     ) -> Dict[str, Any]:
         """Process all input modalities"""
+        print(f"\n[MULTIMODAL] Processing inputs:")
+        print(f"  Text: {text[:50] if text else 'None'}...")
+        print(f"  Image: {image_path}")
+        print(f"  Video: {video_url}")
+
         results = {
             "text_analysis": None,
             "image_analysis": None,
@@ -249,9 +254,13 @@ class JarvisOrchestrator:
         # Process text
         if text and self.nlp_processor:
             try:
+                print(f"[MULTIMODAL] Processing text with NLP...")
                 results["text_analysis"] = await self.nlp_processor.process(text)
+                print(f"[MULTIMODAL] Text processing successful")
             except Exception as e:
-                print(f"Error processing text: {e}")
+                print(f"❌ [MULTIMODAL] Error processing text: {e}")
+                import traceback
+                traceback.print_exc()
                 results["text_analysis"] = {
                     "intent": "create",
                     "entities": [],
@@ -263,17 +272,34 @@ class JarvisOrchestrator:
         # Process image
         if image_path and self.cv_processor:
             try:
-                results["image_analysis"] = await self.cv_processor.process_image(image_path)
+                print(f"[MULTIMODAL] Processing image from: {image_path}")
+                import os as os_module
+                if not os_module.path.exists(image_path):
+                    print(f"⚠️ [MULTIMODAL] Image file not found: {image_path}")
+                    results["image_analysis"] = {"error": f"Image file not found: {image_path}"}
+                else:
+                    file_size = os_module.path.getsize(image_path)
+                    print(f"[MULTIMODAL] Image file found ({file_size} bytes)")
+                    results["image_analysis"] = await self.cv_processor.process_image(image_path)
+                    print(f"[MULTIMODAL] Image processing successful")
+                    if results["image_analysis"].get("error"):
+                        print(f"⚠️ [MULTIMODAL] Image analysis returned error: {results['image_analysis']['error']}")
             except Exception as e:
-                print(f"Error processing image: {e}")
+                print(f"❌ [MULTIMODAL] Error processing image: {e}")
+                import traceback
+                traceback.print_exc()
                 results["image_analysis"] = {"error": str(e)}
 
         # Process video
         if video_url and self.cv_processor:
             try:
+                print(f"[MULTIMODAL] Processing video: {video_url}")
                 results["video_analysis"] = await self.cv_processor.process_video(video_url)
+                print(f"[MULTIMODAL] Video processing successful")
             except Exception as e:
-                print(f"Error processing video: {e}")
+                print(f"❌ [MULTIMODAL] Error processing video: {e}")
+                import traceback
+                traceback.print_exc()
                 results["video_analysis"] = {"error": str(e)}
 
         return results
@@ -286,12 +312,18 @@ class JarvisOrchestrator:
         """
         Create a sequence of actions based on processed inputs
         """
-        print(f"[ACTION_PLAN] Creating action plan from processed data")
+        print(f"\n[ACTION_PLAN] Creating action plan from processed data")
+        print(f"[ACTION_PLAN] Processed data keys: {processed_data.keys()}")
         plan = []
 
         try:
             text_analysis = processed_data.get("text_analysis") or {}
             image_analysis = processed_data.get("image_analysis") or {}
+
+            print(f"[ACTION_PLAN] Text analysis: {text_analysis.get('intent') if text_analysis else 'None'}")
+            print(f"[ACTION_PLAN] Image analysis error: {image_analysis.get('error')}")
+            print(f"[ACTION_PLAN] Image analysis keys: {image_analysis.keys() if image_analysis else 'None'}")
+
             has_text = text_analysis and not text_analysis.get("error")
             has_image = image_analysis and not image_analysis.get("error")
 
