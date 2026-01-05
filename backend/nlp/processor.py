@@ -177,6 +177,8 @@ Return your analysis in a structured JSON format."""
                 intent = "modify"
             elif any(word in text_lower for word in ["what", "show", "how many", "?"]):
                 intent = "query"
+            elif any(word in text_lower for word in ["generate", "make", "create", "build"]):
+                intent = "create"
 
             print(f"[NLP_RULES] Detected intent: {intent}")
 
@@ -189,8 +191,8 @@ Return your analysis in a structured JSON format."""
             # Environments
             environments = ["forest", "city", "interior", "desert", "ocean", "mountain", "river"]
 
-            # Complex objects
-            complex_objects = ["car", "tree", "house", "chair", "table", "building", "sky"]
+            # Complex objects (expanded list)
+            complex_objects = ["car", "tree", "house", "chair", "table", "building", "sky", "suit", "robot", "character", "armor", "weapon"]
 
             # Check for primitive shapes
             for shape in primitive_shapes:
