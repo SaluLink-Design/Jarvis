@@ -7,14 +7,37 @@ const InfoPanel = () => {
   const [deletingIndex, setDeletingIndex] = useState(null);
 
   const handleDeleteObject = async (index) => {
-    if (!contextId) return;
+    if (!contextId) {
+      console.error('Cannot delete object: contextId is not set');
+      return;
+    }
+
+    if (!sceneData || !sceneData.objects || index < 0 || index >= sceneData.objects.length) {
+      console.error('Cannot delete object: invalid index', { index, objectsLength: sceneData?.objects?.length });
+      return;
+    }
 
     setDeletingIndex(index);
     try {
-      await jarvisApi.deleteObject(contextId, index);
+      console.log(`[InfoPanel] Attempting to delete object at index ${index} from context ${contextId}`);
+      const response = await jarvisApi.deleteObject(contextId, index);
+      console.log('[InfoPanel] Successfully deleted object:', response);
       removeObject(index);
     } catch (err) {
-      console.error('Failed to delete object:', err);
+      console.error('Failed to delete object:', {
+        index,
+        contextId,
+        error: err,
+        status: err.response?.status,
+        message: err.message
+      });
+
+      // Show a more helpful error message
+      if (err.response?.status === 404) {
+        console.error('⚠️ Object not found on server. The object may have already been deleted.');
+      } else if (err.response?.status === 503) {
+        console.error('⚠️ Backend service is unavailable.');
+      }
     } finally {
       setDeletingIndex(null);
     }
