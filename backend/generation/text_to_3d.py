@@ -241,17 +241,77 @@ class TextTo3DGenerator:
         }
     
     def _generate_complex_object(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         attributes: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Generate placeholder for complex objects"""
         # In production, this would use actual 3D generation models
-        # For now, create a composite of primitives
-        
+        # For now, create a composite of primitives based on the prompt
+
         size = self._parse_size(attributes.get("size", "medium"))
-        color = self._parse_color(attributes.get("color", "gray"))
-        
+        color = self._parse_color(attributes.get("color", "#4a5568"))  # default to gray
+
+        prompt_lower = prompt.lower() if prompt else ""
+
+        # Determine dominant colors from attributes
+        dominant_colors = attributes.get("dominant_colors", [])
+        if dominant_colors and isinstance(dominant_colors, list) and len(dominant_colors) > 0:
+            # Try to use the dominant color from image
+            rgb = dominant_colors[0]
+            if isinstance(rgb, list) and len(rgb) >= 3:
+                color = f"#{int(rgb[0]):02x}{int(rgb[1]):02x}{int(rgb[2]):02x}"
+
+        # Create a more interesting composite based on what's in the image
+        # For suits/armor/robots: tall humanoid shape
+        if any(word in prompt_lower for word in ["suit", "armor", "robot", "character"]):
+            return {
+                "geometry": {
+                    "type": "Group",
+                    "children": [
+                        # Head
+                        {
+                            **self._generate_sphere({"size": size * 0.6, "color": color}),
+                            "position": [0, size * 1.4, 0]
+                        },
+                        # Torso
+                        {
+                            **self._generate_cube({"size": size * 0.8, "color": color}),
+                            "position": [0, size * 0.7, 0]
+                        },
+                        # Left arm
+                        {
+                            **self._generate_cylinder({"size": size * 0.4, "color": color}),
+                            "position": [-size * 0.6, size * 0.8, 0]
+                        },
+                        # Right arm
+                        {
+                            **self._generate_cylinder({"size": size * 0.4, "color": color}),
+                            "position": [size * 0.6, size * 0.8, 0]
+                        },
+                        # Left leg
+                        {
+                            **self._generate_cylinder({"size": size * 0.5, "color": color}),
+                            "position": [-size * 0.3, size * 0.2, 0]
+                        },
+                        # Right leg
+                        {
+                            **self._generate_cylinder({"size": size * 0.5, "color": color}),
+                            "position": [size * 0.3, size * 0.2, 0]
+                        }
+                    ]
+                },
+                "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": color,
+                    "metalness": 0.6,  # Make it look more metallic for armor/suit
+                    "roughness": 0.3
+                },
+                "position": [0, 0, 0],
+                "note": f"3D model based on: {prompt}"
+            }
+
+        # For other complex objects, create a simple placeholder
         return {
             "geometry": {
                 "type": "Group",
