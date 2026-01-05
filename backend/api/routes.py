@@ -129,6 +129,41 @@ async def test_endpoint():
     }
 
 
+@router.get("/diagnostics")
+async def diagnostics():
+    """Get system diagnostics and configuration status"""
+    from main import orchestrator
+    import sys
+
+    openai_key_set = bool(os.getenv("OPENAI_API_KEY"))
+
+    diagnostics_info = {
+        "status": "ok",
+        "orchestrator_initialized": orchestrator is not None,
+        "openai_api_key_set": openai_key_set,
+        "python_version": sys.version,
+        "modules": {
+            "nlp_processor": orchestrator.nlp_processor is not None if orchestrator else False,
+            "cv_processor": orchestrator.cv_processor is not None if orchestrator else False,
+            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
+            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False,
+        },
+        "uploads_dir_exists": os.path.exists("uploads"),
+        "uploads_dir_writable": os.access("uploads", os.W_OK) if os.path.exists("uploads") else False
+    }
+
+    # Check if OpenAI client is initialized
+    if orchestrator and orchestrator.nlp_processor:
+        diagnostics_info["openai_client_initialized"] = orchestrator.nlp_processor.client is not None
+
+    print(f"\n[DIAGNOSTICS] System state:")
+    for key, value in diagnostics_info.items():
+        print(f"  {key}: {value}")
+    print()
+
+    return diagnostics_info
+
+
 @router.post("/text")
 async def process_text(request: TextRequest):
     """
