@@ -327,7 +327,13 @@ class JarvisOrchestrator:
             has_text = text_analysis and not text_analysis.get("error")
             has_image = image_analysis and not image_analysis.get("error")
 
-            print(f"[ACTION_PLAN] Has text: {has_text}, Has image: {has_image}")
+            print(f"[ACTION_PLAN] Text analysis valid: {has_text}")
+            print(f"[ACTION_PLAN] Image analysis valid: {has_image}")
+            if image_analysis:
+                print(f"[ACTION_PLAN] Image dimensions: {image_analysis.get('dimensions')}")
+                print(f"[ACTION_PLAN] Image colors: {len(image_analysis.get('dominant_colors', []))} colors detected")
+                print(f"[ACTION_PLAN] Image complexity: {image_analysis.get('complexity')}")
+                print(f"[ACTION_PLAN] Image loaded by: {image_analysis.get('loaded_by')}")
 
             # Analyze intent from text
             if has_text:
