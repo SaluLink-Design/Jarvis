@@ -220,11 +220,12 @@ async def process_text(request: TextRequest):
         print(f"{'='*80}\n")
 
         if not orchestrator:
-            print("❌ Orchestrator is None!")
+            print("❌ Orchestrator is None! Backend failed to initialize")
             error_response = error_response_template.copy()
             error_response["status"] = "error"
-            error_response["message"] = "Orchestrator not initialized on server"
+            error_response["message"] = "Backend failed to initialize - please check server logs"
             error_response["result"]["error"] = "Orchestrator not initialized"
+            error_response["result"]["diagnostic_hint"] = "This usually means an error occurred during backend startup. Check server logs for details."
             return error_response
 
         print(f"✓ Orchestrator modules:")
