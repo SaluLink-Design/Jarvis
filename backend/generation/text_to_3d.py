@@ -256,13 +256,18 @@ class TextTo3DGenerator:
 
         prompt_lower = prompt.lower() if prompt else ""
 
-        # Determine dominant colors from attributes
-        dominant_colors = attributes.get("dominant_colors", [])
-        if dominant_colors and isinstance(dominant_colors, list) and len(dominant_colors) > 0:
-            # Try to use the dominant color from image
-            rgb = dominant_colors[0]
-            if isinstance(rgb, list) and len(rgb) >= 3:
-                color = f"#{int(rgb[0]):02x}{int(rgb[1]):02x}{int(rgb[2]):02x}"
+        # Determine dominant colors from attributes - try hex_color first
+        if attributes.get("hex_color"):
+            color = attributes.get("hex_color")
+            print(f"[3D_GEN] Using hex_color from image: {color}")
+        else:
+            dominant_colors = attributes.get("dominant_colors", [])
+            if dominant_colors and isinstance(dominant_colors, list) and len(dominant_colors) > 0:
+                # Try to use the dominant color from image
+                rgb = dominant_colors[0]
+                if isinstance(rgb, list) and len(rgb) >= 3:
+                    color = f"#{int(rgb[0]):02x}{int(rgb[1]):02x}{int(rgb[2]):02x}"
+                    print(f"[3D_GEN] Using color from dominant_colors: {color}")
 
         # Create a more interesting composite based on what's in the image
         # For suits/armor/robots: tall humanoid shape
