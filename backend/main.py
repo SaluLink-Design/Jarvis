@@ -22,26 +22,41 @@ orchestrator = None
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     global orchestrator
-    print("🤖 Initializing Jarvis...")
+    print("\n" + "="*80)
+    print("🤖 Initializing Jarvis Backend...")
+    print("="*80)
     try:
+        print("[STARTUP] Creating JarvisOrchestrator instance...")
         orchestrator = JarvisOrchestrator()
+
+        print("[STARTUP] Calling orchestrator.initialize()...")
         await orchestrator.initialize()
-        print("✅ Jarvis is ready!")
+
+        print("="*80)
+        print("✅ Jarvis Backend is ready!")
+        print("="*80 + "\n")
     except Exception as e:
-        print(f"⚠️ Warning during Jarvis initialization: {e}")
+        print("="*80)
+        print(f"⚠️ Warning during Jarvis initialization: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
+        print("="*80)
+        print("[STARTUP] Attempting to create minimal orchestrator instance...")
         # Ensure orchestrator is still created even if initialization partially failed
-        if orchestrator is None:
-            print("Creating minimal orchestrator instance...")
+        try:
             orchestrator = JarvisOrchestrator()
+            print("[STARTUP] Minimal orchestrator created. Backend will use fallback NLP")
+        except Exception as fallback_error:
+            print(f"[STARTUP] ERROR: Could not even create minimal orchestrator: {fallback_error}")
+            orchestrator = None
 
     yield
 
-    print("👋 Shutting down Jarvis...")
+    print("\n👋 Shutting down Jarvis...")
     try:
         if orchestrator:
             await orchestrator.cleanup()
+            print("✅ Jarvis shutdown complete")
     except Exception as e:
         print(f"⚠️ Error during cleanup: {e}")
 
