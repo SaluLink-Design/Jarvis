@@ -476,15 +476,28 @@ class JarvisOrchestrator:
         """Extract useful attributes from image analysis"""
         attributes = {}
 
+        print(f"[ATTRIBUTES] Extracting attributes from image analysis")
+
         # Extract dominant color
         dominant_colors = image_analysis.get("dominant_colors", [])
+        print(f"[ATTRIBUTES] Found {len(dominant_colors)} dominant colors")
+
         if dominant_colors:
             # Convert RGB to color name
             color_rgb = dominant_colors[0]
+            print(f"[ATTRIBUTES] Primary color RGB: {color_rgb}")
+
             if isinstance(color_rgb, list) and len(color_rgb) >= 3:
+                # Store as hex for better 3D generation
+                hex_color = f"#{int(color_rgb[0]):02x}{int(color_rgb[1]):02x}{int(color_rgb[2]):02x}"
+                attributes["hex_color"] = hex_color
+                print(f"[ATTRIBUTES] Converted to hex: {hex_color}")
+
+                # Also try to get a color name
                 color_name = self._rgb_to_color_name(color_rgb)
                 if color_name:
                     attributes["color"] = color_name
+                    print(f"[ATTRIBUTES] Color name: {color_name}")
 
         # Extract style information
         style = image_analysis.get("style", {})
@@ -498,9 +511,20 @@ class JarvisOrchestrator:
         complexity = image_analysis.get("complexity", 0.5)
         if complexity > 0.7:
             attributes["complexity"] = "high"
+            attributes["size"] = "large"
         elif complexity < 0.3:
             attributes["complexity"] = "low"
+            attributes["size"] = "small"
+        else:
+            attributes["complexity"] = "medium"
+            attributes["size"] = "medium"
 
+        # Include dimensions for reference
+        dimensions = image_analysis.get("dimensions", {})
+        if dimensions:
+            attributes["image_dimensions"] = dimensions
+
+        print(f"[ATTRIBUTES] Extracted attributes: {attributes}")
         return attributes
 
     def _merge_attributes(
