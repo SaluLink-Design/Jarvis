@@ -177,8 +177,11 @@ npm run dev  # Hot reload enabled
 
 - The current implementation uses simplified 3D generation (procedural primitives)
 - For production-grade text-to-3D, integrate models like Shap-E or Magic3D
-- OpenAI API key is optional but enables better natural language understanding
-- Without an API key, the system uses rule-based NLP (still functional)
+- **OpenAI API key is completely optional**
+  - With a key: Uses advanced LLM for natural language understanding
+  - Without a key: Uses rule-based NLP (still fully functional)
+  - Both modes support all features: object creation, environments, image uploads, etc.
+- See [BACKEND_SETUP.md](./BACKEND_SETUP.md) for complete setup and troubleshooting guide
 
 ## Next Steps
 
