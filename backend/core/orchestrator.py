@@ -353,6 +353,8 @@ class JarvisOrchestrator:
                                     entity.get("attributes", {}),
                                     image_analysis
                                 )
+                                print(f"[ACTION_PLAN] Creating {entity.get('value')} with merged attributes: {merged_attrs}")
+
                                 plan.append({
                                     "action": "generate_object",
                                     "object_type": entity.get("value"),
@@ -361,6 +363,7 @@ class JarvisOrchestrator:
                                     "source": "text_with_image" if has_image else "text_only"
                                 })
                             elif entity.get("type") == "environment":
+                                print(f"[ACTION_PLAN] Creating environment: {entity.get('value')}")
                                 plan.append({
                                     "action": "generate_environment",
                                     "environment_type": entity.get("value")
