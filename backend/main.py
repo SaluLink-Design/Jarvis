@@ -22,26 +22,41 @@ orchestrator = None
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     global orchestrator
-    print("🤖 Initializing Jarvis...")
+    print("\n" + "="*80)
+    print("🤖 Initializing Jarvis Backend...")
+    print("="*80)
     try:
+        print("[STARTUP] Creating JarvisOrchestrator instance...")
         orchestrator = JarvisOrchestrator()
+
+        print("[STARTUP] Calling orchestrator.initialize()...")
         await orchestrator.initialize()
-        print("✅ Jarvis is ready!")
+
+        print("="*80)
+        print("✅ Jarvis Backend is ready!")
+        print("="*80 + "\n")
     except Exception as e:
-        print(f"⚠️ Warning during Jarvis initialization: {e}")
+        print("="*80)
+        print(f"⚠️ Warning during Jarvis initialization: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
+        print("="*80)
+        print("[STARTUP] Attempting to create minimal orchestrator instance...")
         # Ensure orchestrator is still created even if initialization partially failed
-        if orchestrator is None:
-            print("Creating minimal orchestrator instance...")
+        try:
             orchestrator = JarvisOrchestrator()
+            print("[STARTUP] Minimal orchestrator created. Backend will use fallback NLP")
+        except Exception as fallback_error:
+            print(f"[STARTUP] ERROR: Could not even create minimal orchestrator: {fallback_error}")
+            orchestrator = None
 
     yield
 
-    print("👋 Shutting down Jarvis...")
+    print("\n👋 Shutting down Jarvis...")
     try:
         if orchestrator:
             await orchestrator.cleanup()
+            print("✅ Jarvis shutdown complete")
     except Exception as e:
         print(f"⚠️ Error during cleanup: {e}")
 
@@ -109,31 +124,51 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
+    openai_key_set = bool(os.getenv("OPENAI_API_KEY"))
+
+    health_status = {
+        "status": "healthy" if orchestrator is not None else "unhealthy",
         "orchestrator_ready": orchestrator is not None,
-        "modules": {
-            "nlp": orchestrator.nlp_processor is not None if orchestrator else False,
-            "cv": orchestrator.cv_processor is not None if orchestrator else False,
-            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
-            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False
-        } if orchestrator else {}
+        "openai_api_key_set": openai_key_set,
     }
+
+    if orchestrator:
+        health_status["modules"] = {
+            "nlp": orchestrator.nlp_processor is not None,
+            "cv": orchestrator.cv_processor is not None,
+            "text_to_3d": orchestrator.text_to_3d is not None,
+            "scene_builder": orchestrator.scene_builder is not None
+        }
+        # Check if OpenAI client is initialized
+        if orchestrator.nlp_processor:
+            health_status["openai_client_initialized"] = orchestrator.nlp_processor.client is not None
+
+    return health_status
 
 
 @app.get("/api/health")
 async def api_health_check():
     """API Health check endpoint"""
-    return {
-        "status": "healthy",
+    openai_key_set = bool(os.getenv("OPENAI_API_KEY"))
+
+    health_status = {
+        "status": "healthy" if orchestrator is not None else "unhealthy",
         "orchestrator_ready": orchestrator is not None,
-        "modules": {
-            "nlp": orchestrator.nlp_processor is not None if orchestrator else False,
-            "cv": orchestrator.cv_processor is not None if orchestrator else False,
-            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
-            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False
-        } if orchestrator else {}
+        "openai_api_key_set": openai_key_set,
     }
+
+    if orchestrator:
+        health_status["modules"] = {
+            "nlp": orchestrator.nlp_processor is not None,
+            "cv": orchestrator.cv_processor is not None,
+            "text_to_3d": orchestrator.text_to_3d is not None,
+            "scene_builder": orchestrator.scene_builder is not None
+        }
+        # Check if OpenAI client is initialized
+        if orchestrator.nlp_processor:
+            health_status["openai_client_initialized"] = orchestrator.nlp_processor.client is not None
+
+    return health_status
 
 
 if __name__ == "__main__":

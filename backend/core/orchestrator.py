@@ -327,7 +327,13 @@ class JarvisOrchestrator:
             has_text = text_analysis and not text_analysis.get("error")
             has_image = image_analysis and not image_analysis.get("error")
 
-            print(f"[ACTION_PLAN] Has text: {has_text}, Has image: {has_image}")
+            print(f"[ACTION_PLAN] Text analysis valid: {has_text}")
+            print(f"[ACTION_PLAN] Image analysis valid: {has_image}")
+            if image_analysis:
+                print(f"[ACTION_PLAN] Image dimensions: {image_analysis.get('dimensions')}")
+                print(f"[ACTION_PLAN] Image colors: {len(image_analysis.get('dominant_colors', []))} colors detected")
+                print(f"[ACTION_PLAN] Image complexity: {image_analysis.get('complexity')}")
+                print(f"[ACTION_PLAN] Image loaded by: {image_analysis.get('loaded_by')}")
 
             # Analyze intent from text
             if has_text:
@@ -347,25 +353,43 @@ class JarvisOrchestrator:
                                     entity.get("attributes", {}),
                                     image_analysis
                                 )
+                                print(f"[ACTION_PLAN] Creating {entity.get('value')} with merged attributes: {merged_attrs}")
+
                                 plan.append({
                                     "action": "generate_object",
                                     "object_type": entity.get("value"),
-                                    "attributes": merged_attrs
+                                    "attributes": merged_attrs,
+                                    "full_description": text,  # Preserve full description for image-based generation
+                                    "source": "text_with_image" if has_image else "text_only"
                                 })
                             elif entity.get("type") == "environment":
+                                print(f"[ACTION_PLAN] Creating environment: {entity.get('value')}")
                                 plan.append({
                                     "action": "generate_environment",
                                     "environment_type": entity.get("value")
                                 })
                     else:
-                        # No entities found, create a default object with image attributes
-                        print(f"[ACTION_PLAN] No entities found in text, using default object with image attributes")
-                        image_attrs = self._extract_image_attributes(image_analysis)
-                        plan.append({
-                            "action": "generate_object",
-                            "object_type": "cube",
-                            "attributes": {**attributes, **image_attrs}
-                        })
+                        # No entities found in text
+                        # Check if this is an image-based request
+                        if has_image:
+                            print(f"[ACTION_PLAN] No entities found but image provided, treating as image-based generation")
+                            image_attrs = self._extract_image_attributes(image_analysis)
+                            plan.append({
+                                "action": "generate_object",
+                                "object_type": "complex",
+                                "prompt": text,
+                                "attributes": {**attributes, **image_attrs},
+                                "source": "image_with_description"
+                            })
+                        else:
+                            # No entities and no image, create a default object
+                            print(f"[ACTION_PLAN] No entities found in text and no image, using default cube")
+                            image_attrs = self._extract_image_attributes(image_analysis)
+                            plan.append({
+                                "action": "generate_object",
+                                "object_type": "cube",
+                                "attributes": {**attributes, **image_attrs}
+                            })
 
                 elif intent == "modify":
                     # Plan for modifying existing objects
@@ -399,7 +423,27 @@ class JarvisOrchestrator:
                     "action": "generate_object",
                     "object_type": object_type,
                     "attributes": image_attrs,
-                    "source": "image_analysis"
+                    "source": "image_analysis",
+                    "prompt": "3D object based on uploaded image"
+                })
+
+            # Handle case where text doesn't match any entities but image exists
+            elif not entities and has_image:
+                print(f"[ACTION_PLAN] Text provided but no recognized entities, using image analysis")
+                image_attrs = self._extract_image_attributes(image_analysis)
+                print(f"[ACTION_PLAN] Image attributes extracted: {image_attrs}")
+
+                # For images, determine shape based on complexity
+                complexity = image_analysis.get("complexity", 0.5)
+                object_type = "sphere" if complexity > 0.5 else "cube"
+
+                # Use the original text as a description for image-based generation
+                plan.append({
+                    "action": "generate_object",
+                    "object_type": object_type,
+                    "prompt": text or "3D object based on uploaded image",
+                    "attributes": image_attrs,
+                    "source": "image_with_description"
                 })
 
             # Enhance with image data if both text and image exist
@@ -440,15 +484,28 @@ class JarvisOrchestrator:
         """Extract useful attributes from image analysis"""
         attributes = {}
 
+        print(f"[ATTRIBUTES] Extracting attributes from image analysis")
+
         # Extract dominant color
         dominant_colors = image_analysis.get("dominant_colors", [])
+        print(f"[ATTRIBUTES] Found {len(dominant_colors)} dominant colors")
+
         if dominant_colors:
             # Convert RGB to color name
             color_rgb = dominant_colors[0]
+            print(f"[ATTRIBUTES] Primary color RGB: {color_rgb}")
+
             if isinstance(color_rgb, list) and len(color_rgb) >= 3:
+                # Store as hex for better 3D generation
+                hex_color = f"#{int(color_rgb[0]):02x}{int(color_rgb[1]):02x}{int(color_rgb[2]):02x}"
+                attributes["hex_color"] = hex_color
+                print(f"[ATTRIBUTES] Converted to hex: {hex_color}")
+
+                # Also try to get a color name
                 color_name = self._rgb_to_color_name(color_rgb)
                 if color_name:
                     attributes["color"] = color_name
+                    print(f"[ATTRIBUTES] Color name: {color_name}")
 
         # Extract style information
         style = image_analysis.get("style", {})
@@ -462,9 +519,20 @@ class JarvisOrchestrator:
         complexity = image_analysis.get("complexity", 0.5)
         if complexity > 0.7:
             attributes["complexity"] = "high"
+            attributes["size"] = "large"
         elif complexity < 0.3:
             attributes["complexity"] = "low"
+            attributes["size"] = "small"
+        else:
+            attributes["complexity"] = "medium"
+            attributes["size"] = "medium"
 
+        # Include dimensions for reference
+        dimensions = image_analysis.get("dimensions", {})
+        if dimensions:
+            attributes["image_dimensions"] = dimensions
+
+        print(f"[ATTRIBUTES] Extracted attributes: {attributes}")
         return attributes
 
     def _merge_attributes(
@@ -590,16 +658,22 @@ class JarvisOrchestrator:
 
         object_type = action.get("object_type", "cube")
         attributes = action.get("attributes", {})
+        full_description = action.get("full_description")
+        source = action.get("source", "text_only")
 
-        print(f"[GENERATOR] Generating object: {object_type}, attributes: {attributes}")
+        print(f"[GENERATOR] Generating object: {object_type}, source: {source}")
+        print(f"[GENERATOR] Full description: {full_description}")
+        print(f"[GENERATOR] Attributes: {attributes}")
 
         try:
             # Use text-to-3D generator
             if self.text_to_3d:
                 try:
                     print(f"[GENERATOR] Calling text_to_3d.generate...")
+                    # Use full description if available, otherwise use object type
+                    prompt = full_description if full_description else f"a {object_type}"
                     object_data = await self.text_to_3d.generate(
-                        prompt=f"a {object_type}",
+                        prompt=prompt,
                         attributes=attributes
                     )
                     print(f"[GENERATOR] Generated object data received")

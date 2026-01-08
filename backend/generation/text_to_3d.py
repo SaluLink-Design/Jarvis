@@ -62,8 +62,12 @@ class TextTo3DGenerator:
             if object_type in self.primitive_shapes:
                 print(f"[3D_GEN] Using primitive shape generator for: {object_type}")
                 model_data = self.primitive_shapes[object_type](attributes)
+            elif object_type == "complex":
+                # For complex objects (including from images), use specialized handling
+                print(f"[3D_GEN] Using complex object generator for image-based request")
+                model_data = self._generate_complex_object(prompt, attributes)
             else:
-                # For complex objects, create a placeholder
+                # For other complex objects, create a placeholder
                 print(f"[3D_GEN] Using complex object generator for: {object_type}")
                 model_data = self._generate_complex_object(prompt, attributes)
 
@@ -128,8 +132,10 @@ class TextTo3DGenerator:
     def _generate_cube(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a cube"""
         size = self._parse_size(attributes.get("size", "medium"))
-        color = self._parse_color(attributes.get("color", "gray"))
-        
+
+        # Try to use hex color first (from images), fall back to color name
+        color = attributes.get("hex_color") or self._parse_color(attributes.get("color", "gray"))
+
         return {
             "geometry": {
                 "type": "BoxGeometry",
@@ -151,7 +157,7 @@ class TextTo3DGenerator:
     def _generate_sphere(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a sphere"""
         size = self._parse_size(attributes.get("size", "medium"))
-        color = self._parse_color(attributes.get("color", "gray"))
+        color = attributes.get("hex_color") or self._parse_color(attributes.get("color", "gray"))
         
         return {
             "geometry": {
@@ -174,7 +180,7 @@ class TextTo3DGenerator:
     def _generate_cylinder(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a cylinder"""
         size = self._parse_size(attributes.get("size", "medium"))
-        color = self._parse_color(attributes.get("color", "gray"))
+        color = attributes.get("hex_color") or self._parse_color(attributes.get("color", "gray"))
         
         return {
             "geometry": {
@@ -196,7 +202,7 @@ class TextTo3DGenerator:
     def _generate_cone(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a cone"""
         size = self._parse_size(attributes.get("size", "medium"))
-        color = self._parse_color(attributes.get("color", "gray"))
+        color = attributes.get("hex_color") or self._parse_color(attributes.get("color", "gray"))
         
         return {
             "geometry": {
@@ -217,7 +223,7 @@ class TextTo3DGenerator:
     def _generate_plane(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a plane (ground)"""
         size = self._parse_size(attributes.get("size", "large"))
-        color = self._parse_color(attributes.get("color", "#228B22"))
+        color = attributes.get("hex_color") or self._parse_color(attributes.get("color", "#228B22"))
 
         return {
             "geometry": {
@@ -237,17 +243,82 @@ class TextTo3DGenerator:
         }
     
     def _generate_complex_object(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         attributes: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Generate placeholder for complex objects"""
         # In production, this would use actual 3D generation models
-        # For now, create a composite of primitives
-        
+        # For now, create a composite of primitives based on the prompt
+
         size = self._parse_size(attributes.get("size", "medium"))
-        color = self._parse_color(attributes.get("color", "gray"))
-        
+        color = self._parse_color(attributes.get("color", "#4a5568"))  # default to gray
+
+        prompt_lower = prompt.lower() if prompt else ""
+
+        # Determine dominant colors from attributes - try hex_color first
+        if attributes.get("hex_color"):
+            color = attributes.get("hex_color")
+            print(f"[3D_GEN] Using hex_color from image: {color}")
+        else:
+            dominant_colors = attributes.get("dominant_colors", [])
+            if dominant_colors and isinstance(dominant_colors, list) and len(dominant_colors) > 0:
+                # Try to use the dominant color from image
+                rgb = dominant_colors[0]
+                if isinstance(rgb, list) and len(rgb) >= 3:
+                    color = f"#{int(rgb[0]):02x}{int(rgb[1]):02x}{int(rgb[2]):02x}"
+                    print(f"[3D_GEN] Using color from dominant_colors: {color}")
+
+        # Create a more interesting composite based on what's in the image
+        # For suits/armor/robots: tall humanoid shape
+        if any(word in prompt_lower for word in ["suit", "armor", "robot", "character", "ironman", "iron man"]):
+            return {
+                "geometry": {
+                    "type": "Group",
+                    "children": [
+                        # Head
+                        {
+                            **self._generate_sphere({"size": size * 0.6, "color": color}),
+                            "position": [0, size * 1.4, 0]
+                        },
+                        # Torso
+                        {
+                            **self._generate_cube({"size": size * 0.8, "color": color}),
+                            "position": [0, size * 0.7, 0]
+                        },
+                        # Left arm
+                        {
+                            **self._generate_cylinder({"size": size * 0.4, "color": color}),
+                            "position": [-size * 0.6, size * 0.8, 0]
+                        },
+                        # Right arm
+                        {
+                            **self._generate_cylinder({"size": size * 0.4, "color": color}),
+                            "position": [size * 0.6, size * 0.8, 0]
+                        },
+                        # Left leg
+                        {
+                            **self._generate_cylinder({"size": size * 0.5, "color": color}),
+                            "position": [-size * 0.3, size * 0.2, 0]
+                        },
+                        # Right leg
+                        {
+                            **self._generate_cylinder({"size": size * 0.5, "color": color}),
+                            "position": [size * 0.3, size * 0.2, 0]
+                        }
+                    ]
+                },
+                "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": color,
+                    "metalness": 0.6,  # Make it look more metallic for armor/suit
+                    "roughness": 0.3
+                },
+                "position": [0, 0, 0],
+                "note": f"3D model based on: {prompt}"
+            }
+
+        # For other complex objects, create a simple placeholder
         return {
             "geometry": {
                 "type": "Group",

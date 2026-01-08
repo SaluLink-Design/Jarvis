@@ -61,11 +61,26 @@ async def process_request(
             filename = f"{uuid.uuid4()}{file_ext}"
             image_path = os.path.join("uploads", filename)
 
-            print(f"[/api/process] Saving image to: {image_path}")
+            print(f"\n[/api/process] IMAGE UPLOAD:")
+            print(f"  Filename: {image.filename}")
+            print(f"  Content-Type: {image.content_type}")
+            print(f"  Saving to: {image_path}")
+
+            # Ensure uploads directory exists
+            os.makedirs(os.path.dirname(image_path) or ".", exist_ok=True)
+
             with open(image_path, "wb") as f:
                 content = await image.read()
                 f.write(content)
-                print(f"[/api/process] Image saved successfully ({len(content)} bytes)")
+                file_size = len(content)
+                print(f"  ✓ Image saved successfully ({file_size} bytes)")
+
+                # Verify file exists
+                if os.path.exists(image_path):
+                    print(f"  ✓ File verified on disk")
+                else:
+                    print(f"  ✗ ERROR: File not found after saving!")
+                    image_path = None
         except Exception as save_error:
             print(f"❌ [/api/process] Failed to save image: {save_error}")
             import traceback
@@ -141,24 +156,40 @@ async def diagnostics():
         "status": "ok",
         "orchestrator_initialized": orchestrator is not None,
         "openai_api_key_set": openai_key_set,
+        "openai_api_key_length": len(os.getenv("OPENAI_API_KEY", "")) if openai_key_set else 0,
         "python_version": sys.version,
         "modules": {
-            "nlp_processor": orchestrator.nlp_processor is not None if orchestrator else False,
-            "cv_processor": orchestrator.cv_processor is not None if orchestrator else False,
-            "text_to_3d": orchestrator.text_to_3d is not None if orchestrator else False,
-            "scene_builder": orchestrator.scene_builder is not None if orchestrator else False,
+            "nlp_processor_exists": orchestrator.nlp_processor is not None if orchestrator else False,
+            "cv_processor_exists": orchestrator.cv_processor is not None if orchestrator else False,
+            "text_to_3d_exists": orchestrator.text_to_3d is not None if orchestrator else False,
+            "scene_builder_exists": orchestrator.scene_builder is not None if orchestrator else False,
         },
         "uploads_dir_exists": os.path.exists("uploads"),
         "uploads_dir_writable": os.access("uploads", os.W_OK) if os.path.exists("uploads") else False
     }
 
     # Check if OpenAI client is initialized
+    openai_client_ready = False
     if orchestrator and orchestrator.nlp_processor:
-        diagnostics_info["openai_client_initialized"] = orchestrator.nlp_processor.client is not None
+        openai_client_ready = orchestrator.nlp_processor.client is not None
+        diagnostics_info["openai_client_initialized"] = openai_client_ready
+        diagnostics_info["using_llm"] = openai_client_ready
+        diagnostics_info["nlp_processor_fallback"] = "rule_based" if not openai_client_ready else "openai_llm"
+
+    # Overall system status
+    if orchestrator is None:
+        diagnostics_info["status"] = "error"
+        diagnostics_info["error"] = "Orchestrator failed to initialize"
+    elif not openai_api_key_set:
+        diagnostics_info["status"] = "warning"
+        diagnostics_info["warning"] = "OpenAI API key not set - using rule-based NLP"
+    else:
+        diagnostics_info["status"] = "ok"
 
     print(f"\n[DIAGNOSTICS] System state:")
     for key, value in diagnostics_info.items():
-        print(f"  {key}: {value}")
+        if key not in ["openai_api_key_length"]:  # Don't print the key length
+            print(f"  {key}: {value}")
     print()
 
     return diagnostics_info
@@ -204,11 +235,12 @@ async def process_text(request: TextRequest):
         print(f"{'='*80}\n")
 
         if not orchestrator:
-            print("❌ Orchestrator is None!")
+            print("❌ Orchestrator is None! Backend failed to initialize")
             error_response = error_response_template.copy()
             error_response["status"] = "error"
-            error_response["message"] = "Orchestrator not initialized on server"
+            error_response["message"] = "Backend failed to initialize - please check server logs"
             error_response["result"]["error"] = "Orchestrator not initialized"
+            error_response["result"]["diagnostic_hint"] = "This usually means an error occurred during backend startup. Check server logs for details."
             return error_response
 
         print(f"✓ Orchestrator modules:")

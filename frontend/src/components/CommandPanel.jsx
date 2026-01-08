@@ -24,14 +24,24 @@ const CommandPanel = () => {
 
       if (selectedImage) {
         // Multimodal request with image
+        console.log('[CommandPanel] Processing image upload:', {
+          filename: selectedImage.name,
+          size: selectedImage.size,
+          type: selectedImage.type,
+          textDescription: command || '(empty - will use color-based generation)'
+        });
+
         const formData = new FormData();
         formData.append('text', command);
         if (contextId) formData.append('context_id', contextId);
         formData.append('image', selectedImage);
 
+        console.log('[CommandPanel] Sending request to /api/process');
         response = await jarvisApi.processMultimodal(formData);
+        console.log('[CommandPanel] Image processing response:', response);
       } else {
         // Text-only request
+        console.log('[CommandPanel] Processing text-only command:', command);
         response = await jarvisApi.processText(command, contextId);
       }
 
@@ -40,7 +50,15 @@ const CommandPanel = () => {
       setSelectedImage(null);
     } catch (error) {
       console.error('Error processing command:', error);
-      const errorMsg = error.response?.data?.detail || error.message || 'Failed to process command';
+      let errorMsg = error.response?.data?.detail || error.message || 'Failed to process command';
+
+      // Provide more helpful error messages
+      if (error.code === 'ERR_NETWORK' || !error.response) {
+        errorMsg = 'Cannot connect to backend - make sure the backend server is running on your machine';
+      } else if (error.response?.status === 503) {
+        errorMsg = 'Backend service unavailable - check server initialization errors';
+      }
+
       setError(`Error: ${errorMsg}`);
       setLoading(false);
     }
@@ -112,6 +130,7 @@ const CommandPanel = () => {
           <div className="flex flex-col space-y-2">
             <div className="flex items-center space-x-2 text-sm text-gray-400">
               <span>📎 {selectedImage.name}</span>
+              <span className="text-xs text-gray-500">({(selectedImage.size / 1024).toFixed(1)} KB)</span>
               <button
                 type="button"
                 onClick={() => setSelectedImage(null)}
@@ -120,11 +139,9 @@ const CommandPanel = () => {
                 Remove
               </button>
             </div>
-            {!command.trim() && (
-              <div className="px-3 py-2 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-md text-sm text-blue-300">
-                💡 Tip: Describe what you'd like to create from this image (e.g., "Create a modern chair based on this image")
-              </div>
-            )}
+            <div className="px-3 py-2 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-md text-sm text-blue-300">
+              💡 <strong>Add a description (optional):</strong> Tell me what to create from this image (e.g., "Create a blue sphere from this" or just leave empty for color-based generation)
+            </div>
           </div>
         )}
 
