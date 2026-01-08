@@ -169,10 +169,29 @@ const InfoPanel = () => {
         <div className="p-4 bg-red-900/30 border-t border-red-700">
           <p className="text-sm text-red-300 font-medium">⚠️ Error</p>
           <p className="text-xs text-red-200 mt-1">{error}</p>
+
+          {/* Improved error messages based on error type */}
           {error.includes('503') && (
-            <p className="text-xs text-yellow-300 mt-2">
-              💡 Tip: Make sure your backend is running and your OpenAI API key is configured
-            </p>
+            <div className="text-xs text-yellow-300 mt-2 space-y-1">
+              <p>💡 Backend Service Unavailable</p>
+              <p>• Make sure the backend server is running</p>
+              <p>• Check server logs for initialization errors</p>
+              <p>• An OpenAI API key is optional - the system has fallbacks</p>
+            </div>
+          )}
+
+          {error.includes('Failed to process command') && (
+            <div className="text-xs text-yellow-300 mt-2">
+              <p>💡 Could not connect to backend. Is the server running?</p>
+            </div>
+          )}
+
+          {error.includes('Orchestrator not initialized') && (
+            <div className="text-xs text-yellow-300 mt-2 space-y-1">
+              <p>💡 Backend initialization failed</p>
+              <p>• Check server logs for errors during startup</p>
+              <p>• This may be due to missing dependencies or configuration</p>
+            </div>
           )}
         </div>
       )}
