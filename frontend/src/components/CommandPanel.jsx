@@ -120,6 +120,7 @@ const CommandPanel = () => {
           <div className="flex flex-col space-y-2">
             <div className="flex items-center space-x-2 text-sm text-gray-400">
               <span>📎 {selectedImage.name}</span>
+              <span className="text-xs text-gray-500">({(selectedImage.size / 1024).toFixed(1)} KB)</span>
               <button
                 type="button"
                 onClick={() => setSelectedImage(null)}
@@ -129,7 +130,7 @@ const CommandPanel = () => {
               </button>
             </div>
             <div className="px-3 py-2 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-md text-sm text-blue-300">
-              💡 <strong>Describe the image:</strong> Tell me what to create from it (e.g., "Generate a 3D model of an iron man suit from this image")
+              💡 <strong>Add a description (optional):</strong> Tell me what to create from this image (e.g., "Create a blue sphere from this" or just leave empty for color-based generation)
             </div>
           </div>
         )}
