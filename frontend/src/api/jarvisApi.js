@@ -100,6 +100,16 @@ class JarvisAPI {
     }
   }
 
+  async diagnostics() {
+    try {
+      const response = await axios.get(`${API_BASE}/diagnostics`);
+      return response.data;
+    } catch (error) {
+      console.error('API Error in diagnostics:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
   async deleteObject(contextId, objectIndex) {
     try {
       console.log(`[API] Deleting object at index ${objectIndex} from scene ${contextId}`);
