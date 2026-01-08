@@ -61,11 +61,26 @@ async def process_request(
             filename = f"{uuid.uuid4()}{file_ext}"
             image_path = os.path.join("uploads", filename)
 
-            print(f"[/api/process] Saving image to: {image_path}")
+            print(f"\n[/api/process] IMAGE UPLOAD:")
+            print(f"  Filename: {image.filename}")
+            print(f"  Content-Type: {image.content_type}")
+            print(f"  Saving to: {image_path}")
+
+            # Ensure uploads directory exists
+            os.makedirs(os.path.dirname(image_path) or ".", exist_ok=True)
+
             with open(image_path, "wb") as f:
                 content = await image.read()
                 f.write(content)
-                print(f"[/api/process] Image saved successfully ({len(content)} bytes)")
+                file_size = len(content)
+                print(f"  ✓ Image saved successfully ({file_size} bytes)")
+
+                # Verify file exists
+                if os.path.exists(image_path):
+                    print(f"  ✓ File verified on disk")
+                else:
+                    print(f"  ✗ ERROR: File not found after saving!")
+                    image_path = None
         except Exception as save_error:
             print(f"❌ [/api/process] Failed to save image: {save_error}")
             import traceback
